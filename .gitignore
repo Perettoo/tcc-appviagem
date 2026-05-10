@@ -1,3 +1,17 @@
+# Env / segredos
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
 # Miscellaneous
 *.class
 *.lock

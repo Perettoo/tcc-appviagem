@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Write-Output \"=== Front-end/lib ===\"; Get-ChildItem -Path \"C:\\\\Users\\\\Gustavo\\\\Documents\\\\dev\\\\tcc_appViagem\\\\Front-end\\\\lib\" -Recurse -File | Select-Object FullName | ForEach-Object { $_.FullName.Replace\\(\"C:\\\\Users\\\\Gustavo\\\\Documents\\\\dev\\\\tcc_appViagem\\\\\",\"\"\\) }; Write-Output \"\"; Write-Output \"=== Back-end/src ===\"; Get-ChildItem -Path \"C:\\\\Users\\\\Gustavo\\\\Documents\\\\dev\\\\tcc_appViagem\\\\Back-end\\\\src\" -Recurse -File | Select-Object FullName | ForEach-Object { $_.FullName.Replace\\(\"C:\\\\Users\\\\Gustavo\\\\Documents\\\\dev\\\\tcc_appViagem\\\\\",\"\"\\) }; Write-Output \"\"; Write-Output \"=== Raiz \\(não-build\\) ===\"; Get-ChildItem -Path \"C:\\\\Users\\\\Gustavo\\\\Documents\\\\dev\\\\tcc_appViagem\" -File -Force)",
+      "Bash(node --check src/server.js)",
+      "Bash(node --check src/presentation/routes/health.js)",
+      "Bash(node --check src/config/database.js)",
+      "Bash(flutter --version)",
+      "PowerShell(flutter *)",
+      "PowerShell(Test-Path *)"
+    ]
+  }
+}
