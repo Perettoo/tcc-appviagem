@@ -7,7 +7,22 @@
       "Bash(node --check src/config/database.js)",
       "Bash(flutter --version)",
       "PowerShell(flutter *)",
-      "PowerShell(Test-Path *)"
+      "PowerShell(Test-Path *)",
+      "Bash(cd C:\\\\Users\\\\Gustavo\\\\Documents\\\\dev\\\\tcc_appViagem\\\\Back-end *)",
+      "Bash(npm start *)",
+      "Bash(curl -s http://localhost:3000/health)",
+      "WebFetch(domain:storage.googleapis.com)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(curl.exe -L --fail --silent --show-error -o \"C:\\\\flutter_windows.zip\" \"https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.41.9-stable.zip\"; Write-Output \\(\"Download terminou. Tamanho: \" + [math]::Round\\(\\(Get-Item 'C:\\\\flutter_windows.zip'\\).Length/1MB,2\\) + \" MB\"\\))",
+      "PowerShell(Join-Path *)",
+      "PowerShell(Remove-Item *)",
+      "PowerShell(& 'C:\\\\Users\\\\Gustavo\\\\flutter\\\\bin\\\\flutter.bat' --version)",
+      "PowerShell(& 'C:\\\\Users\\\\Gustavo\\\\flutter\\\\bin\\\\flutter.bat' doctor)",
+      "Bash(git ls-remote *)",
+      "PowerShell(Get-ChildItem *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }
