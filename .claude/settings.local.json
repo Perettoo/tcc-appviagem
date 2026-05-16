@@ -22,7 +22,10 @@
       "PowerShell(Get-ChildItem *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell($items = Get-ChildItem \"Back-end\" -Force -ErrorAction SilentlyContinue; \"Itens dentro de Back-end: $\\($items.Count\\)\"; $items | Select-Object Name | Format-Table -AutoSize)",
+      "Bash(git submodule *)"
     ]
   }
 }
