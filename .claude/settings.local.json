@@ -25,7 +25,10 @@
       "Bash(git push *)",
       "PowerShell(Get-Process *)",
       "PowerShell($items = Get-ChildItem \"Back-end\" -Force -ErrorAction SilentlyContinue; \"Itens dentro de Back-end: $\\($items.Count\\)\"; $items | Select-Object Name | Format-Table -AutoSize)",
-      "Bash(git submodule *)"
+      "Bash(git submodule *)",
+      "PowerShell(Get-ChildItem \"Back-end\" -Force | Select-Object Name | Format-Table -AutoSize; \"---\"; if \\(Test-Path \"Back-end\\\\index.js\"\\) { \"index.js EXISTE\" } else { \"index.js NAO existe\" }; \"---\"; Get-ChildItem \"Front-end\" -Force -File | Where-Object { $_.Name -eq \"pubspec.yaml\" } | Select-Object Name)",
+      "Bash(git ls-tree *)",
+      "Bash(git checkout *)"
     ]
   }
 }
