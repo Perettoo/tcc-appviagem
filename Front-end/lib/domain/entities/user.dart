@@ -1,13 +1,12 @@
-// Enum para o tipo de usuário
 enum TipoUsuario { carona, motorista, ambos }
 
 class User {
-  String name;
-  String email;
-  String password;
-  TipoUsuario tipo;
+  final String name;
+  final String email;
+  final String password;
+  final TipoUsuario tipo;
 
-  User({
+  const User({
     required this.name,
     required this.email,
     required this.password,

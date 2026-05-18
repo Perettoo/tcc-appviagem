@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:test_tcc/user.dart';
+import 'package:test_tcc/domain/entities/user.dart';
 
 class UserDashboard extends StatelessWidget {
   final User usuario; // Recebe o usuário que acabou de logar

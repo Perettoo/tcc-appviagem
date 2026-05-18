@@ -1,0 +1,86 @@
+import 'package:flutter/foundation.dart';
+import 'package:test_tcc/domain/entities/user.dart';
+import 'package:test_tcc/domain/failures/auth_failure.dart';
+import 'package:test_tcc/domain/usecases/login_usecase.dart';
+import 'package:test_tcc/domain/usecases/logout_usecase.dart';
+import 'package:test_tcc/domain/usecases/register_usecase.dart';
+
+class AuthController extends ChangeNotifier {
+  final LoginUseCase _loginUseCase;
+  final RegisterUseCase _registerUseCase;
+  final LogoutUseCase _logoutUseCase;
+
+  AuthController({
+    required LoginUseCase loginUseCase,
+    required RegisterUseCase registerUseCase,
+    required LogoutUseCase logoutUseCase,
+  })  : _loginUseCase = loginUseCase,
+        _registerUseCase = registerUseCase,
+        _logoutUseCase = logoutUseCase;
+
+  User? _currentUser;
+  String? _error;
+
+  User? get currentUser => _currentUser;
+  String? get error => _error;
+  bool get isAuthenticated => _currentUser != null;
+  bool get isAdmin => _currentUser?.email == 'admin';
+
+  Future<bool> login({
+    required String identifier,
+    required String password,
+  }) async {
+    try {
+      _currentUser = await _loginUseCase(
+        identifier: identifier,
+        password: password,
+      );
+      _error = null;
+      notifyListeners();
+      return true;
+    } on AuthFailure catch (f) {
+      _error = f.message;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<User?> register({
+    required String name,
+    required String email,
+    required String password,
+    required String confirmPassword,
+    required TipoUsuario tipo,
+  }) async {
+    try {
+      final user = await _registerUseCase(
+        name: name,
+        email: email,
+        password: password,
+        confirmPassword: confirmPassword,
+        tipo: tipo,
+      );
+      _error = null;
+      notifyListeners();
+      return user;
+    } on AuthFailure catch (f) {
+      _error = f.message;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<void> logout() async {
+    await _logoutUseCase();
+    _currentUser = null;
+    _error = null;
+    notifyListeners();
+  }
+
+  void clearError() {
+    if (_error != null) {
+      _error = null;
+      notifyListeners();
+    }
+  }
+}

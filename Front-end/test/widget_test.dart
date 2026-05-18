@@ -1,30 +1,64 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:test_tcc/main.dart';
+import 'package:provider/provider.dart';
+import 'package:test_tcc/data/datasources/user_local_datasource.dart';
+import 'package:test_tcc/data/repositories/auth_repository_impl.dart';
+import 'package:test_tcc/data/repositories/user_repository_impl.dart';
+import 'package:test_tcc/domain/repositories/auth_repository.dart';
+import 'package:test_tcc/domain/repositories/user_repository.dart';
+import 'package:test_tcc/domain/usecases/delete_user_usecase.dart';
+import 'package:test_tcc/domain/usecases/list_users_usecase.dart';
+import 'package:test_tcc/domain/usecases/login_usecase.dart';
+import 'package:test_tcc/domain/usecases/logout_usecase.dart';
+import 'package:test_tcc/domain/usecases/register_usecase.dart';
+import 'package:test_tcc/presentation/controllers/auth_controller.dart';
+import 'package:test_tcc/app.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App inicia na tela de login', (tester) async {
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<UserLocalDatasource>(create: (_) => UserLocalDatasource()),
+          ProxyProvider<UserLocalDatasource, AuthRepository>(
+            update: (_, ds, _) => AuthRepositoryImpl(ds),
+          ),
+          ProxyProvider<UserLocalDatasource, UserRepository>(
+            update: (_, ds, _) => UserRepositoryImpl(ds),
+          ),
+          ProxyProvider<AuthRepository, LoginUseCase>(
+            update: (_, repo, _) => LoginUseCase(repo),
+          ),
+          ProxyProvider<AuthRepository, RegisterUseCase>(
+            update: (_, repo, _) => RegisterUseCase(repo),
+          ),
+          Provider<LogoutUseCase>(create: (_) => const LogoutUseCase()),
+          ProxyProvider<UserRepository, ListUsersUseCase>(
+            update: (_, repo, _) => ListUsersUseCase(repo),
+          ),
+          ProxyProvider<UserRepository, DeleteUserUseCase>(
+            update: (_, repo, _) => DeleteUserUseCase(repo),
+          ),
+          ChangeNotifierProxyProvider3<LoginUseCase, RegisterUseCase,
+              LogoutUseCase, AuthController>(
+            create: (ctx) => AuthController(
+              loginUseCase: ctx.read<LoginUseCase>(),
+              registerUseCase: ctx.read<RegisterUseCase>(),
+              logoutUseCase: ctx.read<LogoutUseCase>(),
+            ),
+            update: (_, login, register, logout, previous) =>
+                previous ??
+                AuthController(
+                  loginUseCase: login,
+                  registerUseCase: register,
+                  logoutUseCase: logout,
+                ),
+          ),
+        ],
+        child: const App(),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Faça seu Login'), findsOneWidget);
+    expect(find.text('Compartilhe Caronas'), findsOneWidget);
   });
 }

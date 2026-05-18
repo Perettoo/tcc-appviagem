@@ -1,42 +1,70 @@
 import 'package:flutter/material.dart';
-import 'package:test_tcc/user.dart';
-import 'package:test_tcc/campo_formulario.dart';
+import 'package:provider/provider.dart';
+import 'package:test_tcc/core/theme/app_colors.dart';
+import 'package:test_tcc/domain/entities/user.dart';
+import 'package:test_tcc/presentation/controllers/auth_controller.dart';
+import 'package:test_tcc/presentation/widgets/campo_formulario.dart';
 
-class CriarContas extends StatefulWidget {
-  final List<User> usuariosExistentes; // Para checar se o email já existe
-
-  const CriarContas({super.key, required this.usuariosExistentes});
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
 
   @override
-  State<CriarContas> createState() => _CriarContasState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _CriarContasState extends State<CriarContas> {
-  static const Color verdePrincipal = Color(0xFF2E7D73);
-  static const Color fundoLeve = Color(0xFFF5F7F9);
-
+class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController controllernome = TextEditingController();
   final TextEditingController controlleremail = TextEditingController();
   final TextEditingController controllersenha = TextEditingController();
-  final TextEditingController controllerConfirmarSenha =
-      TextEditingController();
+  final TextEditingController controllerConfirmarSenha = TextEditingController();
 
-  String? _erroSenha;
   TipoUsuario _tipoSelecionado = TipoUsuario.carona;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<AuthController>().clearError();
+    });
+  }
+
+  @override
+  void dispose() {
+    controllernome.dispose();
+    controlleremail.dispose();
+    controllersenha.dispose();
+    controllerConfirmarSenha.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSubmit() async {
+    final auth = context.read<AuthController>();
+    final user = await auth.register(
+      name: controllernome.text,
+      email: controlleremail.text,
+      password: controllersenha.text,
+      confirmPassword: controllerConfirmarSenha.text,
+      tipo: _tipoSelecionado,
+    );
+    if (!mounted || user == null) return;
+    Navigator.pop(context, user);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final erroSenha = context.watch<AuthController>().error;
+
     return Scaffold(
-      backgroundColor: fundoLeve,
+      backgroundColor: AppColors.fundoLeve,
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // --- CABEÇALHO DINÂMICO ---
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(20, 50, 20, 40),
               decoration: const BoxDecoration(
-                color: verdePrincipal,
+                color: AppColors.verdePrincipal,
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(30),
                   bottomRight: Radius.circular(30),
@@ -76,15 +104,11 @@ class _CriarContasState extends State<CriarContas> {
                 ],
               ),
             ),
-
-            // --- FORMULÁRIO ---
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-
-                  // --- CARD COM FORMULÁRIO ---
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -129,8 +153,7 @@ class _CriarContasState extends State<CriarContas> {
                           icon: Icons.lock_outline,
                         ),
                         const SizedBox(height: 20),
-
-                        if (_erroSenha != null)
+                        if (erroSenha != null)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
                             child: Container(
@@ -142,7 +165,7 @@ class _CriarContasState extends State<CriarContas> {
                                 border: Border.all(color: Colors.red),
                               ),
                               child: Text(
-                                _erroSenha!,
+                                erroSenha,
                                 style: const TextStyle(
                                   color: Colors.red,
                                   fontWeight: FontWeight.w600,
@@ -151,13 +174,11 @@ class _CriarContasState extends State<CriarContas> {
                               ),
                             ),
                           ),
-
-                        // --- SELEÇÃO DE TIPO ---
                         Container(
-                          width: double.infinity, // <--- A MÁGICA ACONTECE AQUI
+                          width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: fundoLeve,
+                            color: AppColors.fundoLeve,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Column(
@@ -168,7 +189,7 @@ class _CriarContasState extends State<CriarContas> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,
-                                  color: verdePrincipal,
+                                  color: AppColors.verdePrincipal,
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -177,81 +198,9 @@ class _CriarContasState extends State<CriarContas> {
                                 runSpacing: 10,
                                 alignment: WrapAlignment.center,
                                 children: [
-                                  FilterChip(
-                                    label: const Text('Passageiro'),
-                                    selected:
-                                        _tipoSelecionado == TipoUsuario.carona,
-                                    onSelected: (val) => setState(
-                                      () =>
-                                          _tipoSelecionado = TipoUsuario.carona,
-                                    ),
-                                    backgroundColor: Colors.white,
-                                    selectedColor: verdePrincipal,
-                                    labelStyle: TextStyle(
-                                      color:
-                                          _tipoSelecionado == TipoUsuario.carona
-                                          ? Colors.white
-                                          : Colors.grey[700],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    side: BorderSide(
-                                      color:
-                                          _tipoSelecionado == TipoUsuario.carona
-                                          ? verdePrincipal
-                                          : Colors.grey[300]!,
-                                    ),
-                                  ),
-                                  FilterChip(
-                                    label: const Text('Motorista'),
-                                    selected:
-                                        _tipoSelecionado ==
-                                        TipoUsuario.motorista,
-                                    onSelected: (val) => setState(
-                                      () => _tipoSelecionado =
-                                          TipoUsuario.motorista,
-                                    ),
-                                    backgroundColor: Colors.white,
-                                    selectedColor: verdePrincipal,
-                                    labelStyle: TextStyle(
-                                      color:
-                                          _tipoSelecionado ==
-                                              TipoUsuario.motorista
-                                          ? Colors.white
-                                          : Colors.grey[700],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    side: BorderSide(
-                                      color:
-                                          _tipoSelecionado ==
-                                              TipoUsuario.motorista
-                                          ? verdePrincipal
-                                          : Colors.grey[300]!,
-                                    ),
-                                  ),
-                                  FilterChip(
-                                    label: const Text('Ambos'),
-                                    selected:
-                                        _tipoSelecionado == TipoUsuario.ambos,
-                                    onSelected: (val) => setState(
-                                      () =>
-                                          _tipoSelecionado = TipoUsuario.ambos,
-                                    ),
-                                    backgroundColor: Colors.white,
-                                    selectedColor: verdePrincipal,
-                                    labelStyle: TextStyle(
-                                      color:
-                                          _tipoSelecionado == TipoUsuario.ambos
-                                          ? Colors.white
-                                          : Colors.grey[700],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    side: BorderSide(
-                                      color:
-                                          _tipoSelecionado == TipoUsuario.ambos
-                                          ? verdePrincipal
-                                          : Colors.grey[300]!,
-                                    ),
-                                  ),
+                                  _buildChip('Passageiro', TipoUsuario.carona),
+                                  _buildChip('Motorista', TipoUsuario.motorista),
+                                  _buildChip('Ambos', TipoUsuario.ambos),
                                 ],
                               ),
                             ],
@@ -260,53 +209,13 @@ class _CriarContasState extends State<CriarContas> {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 24),
-
-                  // --- BOTÃO FINALIZAR ---
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          String nome = controllernome.text.trim();
-                          String email = controlleremail.text.trim();
-                          String senha = controllersenha.text;
-                          String confirmarSenha = controllerConfirmarSenha.text;
-
-                          bool emailValido = RegExp(
-                            r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
-                          ).hasMatch(email);
-
-                          if (nome.isEmpty || email.isEmpty || senha.isEmpty) {
-                            _erroSenha = 'Preencha todos os campos.';
-                          } else if (!emailValido) {
-                            _erroSenha =
-                                'Digite um e-mail válido (ex: nome@email.com).';
-                          } else if (widget.usuariosExistentes.any(
-                            (u) => u.email == email,
-                          )) {
-                            _erroSenha =
-                                'Este e-mail já está em uso por outra conta.';
-                          } else if (senha.length < 8) {
-                            _erroSenha =
-                                'A senha deve ter no mínimo 8 caracteres.';
-                          } else if (senha != confirmarSenha) {
-                            _erroSenha = 'As senhas não coincidem.';
-                          } else {
-                            _erroSenha = null;
-                            User novoUsuario = User(
-                              name: nome,
-                              email: email,
-                              password: senha,
-                              tipo: _tipoSelecionado,
-                            );
-                            Navigator.pop(context, novoUsuario);
-                          }
-                        });
-                      },
+                      onPressed: _handleSubmit,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: verdePrincipal,
+                        backgroundColor: AppColors.verdePrincipal,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -323,18 +232,18 @@ class _CriarContasState extends State<CriarContas> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 16),
-
-                  // --- BOTÃO CANCELAR ---
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: verdePrincipal,
+                        foregroundColor: AppColors.verdePrincipal,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: verdePrincipal, width: 2),
+                        side: const BorderSide(
+                          color: AppColors.verdePrincipal,
+                          width: 2,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -348,13 +257,30 @@ class _CriarContasState extends State<CriarContas> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 32),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildChip(String label, TipoUsuario tipo) {
+    final selected = _tipoSelecionado == tipo;
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => setState(() => _tipoSelecionado = tipo),
+      backgroundColor: Colors.white,
+      selectedColor: AppColors.verdePrincipal,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : Colors.grey[700],
+        fontWeight: FontWeight.w500,
+      ),
+      side: BorderSide(
+        color: selected ? AppColors.verdePrincipal : Colors.grey[300]!,
       ),
     );
   }

@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:test_tcc/user.dart';
+import 'package:provider/provider.dart';
+import 'package:test_tcc/core/theme/app_colors.dart';
+import 'package:test_tcc/core/utils/greeting.dart';
+import 'package:test_tcc/domain/entities/user.dart';
+import 'package:test_tcc/presentation/controllers/auth_controller.dart';
+import 'package:test_tcc/presentation/pages/login_page.dart';
+import 'package:test_tcc/presentation/widgets/charts/premium_chart.dart';
 
-class TelaAmbos extends StatefulWidget {
+class AmbosPage extends StatefulWidget {
   final User? user;
-  const TelaAmbos({super.key, this.user});
+  const AmbosPage({super.key, this.user});
 
   @override
-  State<TelaAmbos> createState() => _TelaAmbosState();
+  State<AmbosPage> createState() => _AmbosPageState();
 }
 
-class _TelaAmbosState extends State<TelaAmbos> {
-  static const Color verdePrincipal = Color(0xFF2E7D73);
-  static const Color fundoLeve = Color(0xFFF5F7F9);
-
+class _AmbosPageState extends State<AmbosPage> {
   int _selectedIndex = 0;
-
-  // A CHAVE MESTRA DA TELA: Controla a visão atual
   bool _isMotorista = false;
 
-  // Variáveis de período separadas para não dar conflito
   String _selectedPeriodHomeCarona = 'Mensal';
   String _selectedPeriodGraficoCarona = 'Diário';
   String _selectedPeriodHomeMoto = 'Mensal';
@@ -26,35 +26,29 @@ class _TelaAmbosState extends State<TelaAmbos> {
 
   int? _pontoTocadoIndex;
 
-  // ==========================================
-  // --- MOCK DE DADOS: PASSAGEIRO ---
-  // ==========================================
-  final Map<String, String> _gastosValoresCarona = {
+  final Map<String, String> _gastosValoresCarona = const {
     'Diário': 'R\$ 12,50',
     'Semanal': 'R\$ 62,50',
     'Mensal': 'R\$ 250,00',
   };
-  final Map<String, List<double>> _graficosCarona = {
+  final Map<String, List<double>> _graficosCarona = const {
     'Diário': [12.50, 25.00, 12.50, 37.50, 25.00, 0.0],
     'Semanal': [50.0, 75.0, 62.50, 100.0, 80.0, 0.0],
     'Mensal': [200.0, 350.0, 280.0, 410.0, 390.0, 450.0],
   };
 
-  // ==========================================
-  // --- MOCK DE DADOS: MOTORISTA ---
-  // ==========================================
-  final Map<String, String> _economiaValoresMoto = {
+  final Map<String, String> _economiaValoresMoto = const {
     'Diário': 'R\$ 45,00',
     'Semanal': 'R\$ 190,00',
     'Mensal': 'R\$ 680,00',
   };
-  final Map<String, List<double>> _graficosMoto = {
+  final Map<String, List<double>> _graficosMoto = const {
     'Diário': [25.00, 50.00, 30.00, 65.00, 45.00, 0.0],
     'Semanal': [120.0, 180.0, 150.0, 210.0, 190.0, 0.0],
     'Mensal': [450.0, 600.0, 520.0, 700.0, 680.0, 800.0],
   };
 
-  final Map<String, List<String>> _labelsGraficos = {
+  final Map<String, List<String>> _labelsGraficos = const {
     'Diário': ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
     'Semanal': ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Sem 6'],
     'Mensal': ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
@@ -98,13 +92,23 @@ class _TelaAmbosState extends State<TelaAmbos> {
     final double espacamento = larguraUtil / (quantidadePontos - 1);
     int index = ((posicaoX - paddingLaterais) / espacamento).round();
     index = index.clamp(0, quantidadePontos - 1);
-    if (_pontoTocadoIndex != index) setState(() => _pontoTocadoIndex = index);
+    if (_pontoTocadoIndex != index) {
+      setState(() => _pontoTocadoIndex = index);
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    await context.read<AuthController>().logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     Widget bodyContent;
-
     if (_selectedIndex == 0) {
       bodyContent = _buildTelaHome();
     } else if (_selectedIndex == 1) {
@@ -118,11 +122,11 @@ class _TelaAmbosState extends State<TelaAmbos> {
     }
 
     return Scaffold(
-      backgroundColor: fundoLeve,
+      backgroundColor: AppColors.fundoLeve,
       body: bodyContent,
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: verdePrincipal,
+        selectedItemColor: AppColors.verdePrincipal,
         unselectedItemColor: Colors.grey,
         showSelectedLabels: true,
         showUnselectedLabels: true,
@@ -132,49 +136,44 @@ class _TelaAmbosState extends State<TelaAmbos> {
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
-            _pontoTocadoIndex = null; // Reseta o gráfico ao mudar de aba
+            _pontoTocadoIndex = null;
           });
         },
         items: [
           const BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: "Início",
+            label: 'Início',
           ),
-          // O rótulo da aba muda dinamicamente conforme a visão
           BottomNavigationBarItem(
             icon: Icon(_isMotorista ? Icons.handshake : Icons.bar_chart),
-            label: _isMotorista ? "Repasses" : "Gastos",
+            label: _isMotorista ? 'Repasses' : 'Gastos',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.group_add),
-            label: "Grupos",
+            label: 'Grupos',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.chat),
-            label: "Mensagem",
+            label: 'Mensagem',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: "Perfil",
+            label: 'Perfil',
           ),
         ],
       ),
     );
   }
 
-  // ==========================================
-  // --- TELA HOME (MIX DINÂMICO) ---
-  // ==========================================
   Widget _buildTelaHome() {
     return SingleChildScrollView(
       child: Column(
         children: [
-          // CABEÇALHO COM O TOGGLE SWITCH
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
             decoration: const BoxDecoration(
-              color: verdePrincipal,
+              color: AppColors.verdePrincipal,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
@@ -202,7 +201,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _getGreeting(),
+                              getGreeting(),
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 14,
@@ -210,7 +209,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              widget.user?.name ?? "Daniel Bezerra",
+                              widget.user?.name ?? 'Daniel Bezerra',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
@@ -234,8 +233,6 @@ class _TelaAmbosState extends State<TelaAmbos> {
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // --- TOGGLE SWITCH (MOTORISTA <-> PASSAGEIRO) ---
                 Container(
                   height: 40,
                   decoration: BoxDecoration(
@@ -256,10 +253,10 @@ class _TelaAmbosState extends State<TelaAmbos> {
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              "Passageiro",
+                              'Passageiro',
                               style: TextStyle(
                                 color: !_isMotorista
-                                    ? verdePrincipal
+                                    ? AppColors.verdePrincipal
                                     : Colors.white70,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -280,10 +277,10 @@ class _TelaAmbosState extends State<TelaAmbos> {
                             ),
                             alignment: Alignment.center,
                             child: Text(
-                              "Motorista",
+                              'Motorista',
                               style: TextStyle(
                                 color: _isMotorista
-                                    ? verdePrincipal
+                                    ? AppColors.verdePrincipal
                                     : Colors.white70,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -296,8 +293,6 @@ class _TelaAmbosState extends State<TelaAmbos> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // CARD PRINCIPAL DINÂMICO
                 _isMotorista
                     ? _buildCardResumoMotorista()
                     : _buildCardResumoCarona(),
@@ -305,15 +300,12 @@ class _TelaAmbosState extends State<TelaAmbos> {
             ),
           ),
           const SizedBox(height: 24),
-
-          // CONTEÚDO ESPECÍFICO DINÂMICO
           _isMotorista ? _buildHomeBodyMotorista() : _buildHomeBodyCarona(),
         ],
       ),
     );
   }
 
-  // --- CARDS DA HOME ---
   Widget _buildCardResumoCarona() {
     return Container(
       width: double.infinity,
@@ -336,7 +328,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Gasto $_selectedPeriodHomeCarona",
+                'Gasto $_selectedPeriodHomeCarona',
                 style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 16,
@@ -347,21 +339,24 @@ class _TelaAmbosState extends State<TelaAmbos> {
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'Diário',
-                    onTap: () =>
-                        setState(() => _selectedPeriodHomeCarona = 'Diário'),
-                    child: const Text("Diário"),
+                    onTap: () => setState(
+                      () => _selectedPeriodHomeCarona = 'Diário',
+                    ),
+                    child: const Text('Diário'),
                   ),
                   PopupMenuItem(
                     value: 'Semanal',
-                    onTap: () =>
-                        setState(() => _selectedPeriodHomeCarona = 'Semanal'),
-                    child: const Text("Semanal"),
+                    onTap: () => setState(
+                      () => _selectedPeriodHomeCarona = 'Semanal',
+                    ),
+                    child: const Text('Semanal'),
                   ),
                   PopupMenuItem(
                     value: 'Mensal',
-                    onTap: () =>
-                        setState(() => _selectedPeriodHomeCarona = 'Mensal'),
-                    child: const Text("Mensal"),
+                    onTap: () => setState(
+                      () => _selectedPeriodHomeCarona = 'Mensal',
+                    ),
+                    child: const Text('Mensal'),
                   ),
                 ],
                 icon: const Icon(
@@ -374,9 +369,9 @@ class _TelaAmbosState extends State<TelaAmbos> {
           ),
           const SizedBox(height: 4),
           Text(
-            _gastosValoresCarona[_selectedPeriodHomeCarona] ?? "R\$ 0,00",
+            _gastosValoresCarona[_selectedPeriodHomeCarona] ?? 'R\$ 0,00',
             style: const TextStyle(
-              color: verdePrincipal,
+              color: AppColors.verdePrincipal,
               fontSize: 32,
               fontWeight: FontWeight.bold,
             ),
@@ -409,8 +404,8 @@ class _TelaAmbosState extends State<TelaAmbos> {
             children: [
               Text(
                 _economiaValoresMoto.keys.contains(_selectedPeriodHomeMoto)
-                    ? "Economia $_selectedPeriodHomeMoto"
-                    : "Economia",
+                    ? 'Economia $_selectedPeriodHomeMoto'
+                    : 'Economia',
                 style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 16,
@@ -421,21 +416,24 @@ class _TelaAmbosState extends State<TelaAmbos> {
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'Diário',
-                    onTap: () =>
-                        setState(() => _selectedPeriodHomeMoto = 'Diário'),
-                    child: const Text("Diário"),
+                    onTap: () => setState(
+                      () => _selectedPeriodHomeMoto = 'Diário',
+                    ),
+                    child: const Text('Diário'),
                   ),
                   PopupMenuItem(
                     value: 'Semanal',
-                    onTap: () =>
-                        setState(() => _selectedPeriodHomeMoto = 'Semanal'),
-                    child: const Text("Semanal"),
+                    onTap: () => setState(
+                      () => _selectedPeriodHomeMoto = 'Semanal',
+                    ),
+                    child: const Text('Semanal'),
                   ),
                   PopupMenuItem(
                     value: 'Mensal',
-                    onTap: () =>
-                        setState(() => _selectedPeriodHomeMoto = 'Mensal'),
-                    child: const Text("Mensal"),
+                    onTap: () => setState(
+                      () => _selectedPeriodHomeMoto = 'Mensal',
+                    ),
+                    child: const Text('Mensal'),
                   ),
                 ],
                 icon: const Icon(
@@ -448,9 +446,9 @@ class _TelaAmbosState extends State<TelaAmbos> {
           ),
           const SizedBox(height: 4),
           Text(
-            _economiaValoresMoto[_selectedPeriodHomeMoto] ?? "R\$ 0,00",
+            _economiaValoresMoto[_selectedPeriodHomeMoto] ?? 'R\$ 0,00',
             style: const TextStyle(
-              color: verdePrincipal,
+              color: AppColors.verdePrincipal,
               fontSize: 32,
               fontWeight: FontWeight.bold,
             ),
@@ -471,13 +469,13 @@ class _TelaAmbosState extends State<TelaAmbos> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    "A receber",
+                    'A receber',
                     style: TextStyle(color: Colors.grey[700], fontSize: 14),
                   ),
                 ],
               ),
               Text(
-                "R\$ ${_totalPendenteMoto.toStringAsFixed(2).replaceAll('.', ',')}",
+                'R\$ ${_totalPendenteMoto.toStringAsFixed(2).replaceAll('.', ',')}',
                 style: const TextStyle(
                   color: Colors.orange,
                   fontSize: 16,
@@ -491,7 +489,6 @@ class _TelaAmbosState extends State<TelaAmbos> {
     );
   }
 
-  // --- CORPOS DA HOME ---
   Widget _buildHomeBodyCarona() {
     return Column(
       children: [
@@ -503,9 +500,9 @@ class _TelaAmbosState extends State<TelaAmbos> {
                 child: ElevatedButton.icon(
                   onPressed: () {},
                   icon: const Icon(Icons.group),
-                  label: const Text("Grupo Privado"),
+                  label: const Text('Grupo Privado'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: verdePrincipal,
+                    backgroundColor: AppColors.verdePrincipal,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -520,7 +517,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                 child: ElevatedButton.icon(
                   onPressed: () {},
                   icon: const Icon(Icons.public),
-                  label: const Text("Grupo Público"),
+                  label: const Text('Grupo Público'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey[300],
                     foregroundColor: Colors.grey[700],
@@ -542,19 +539,19 @@ class _TelaAmbosState extends State<TelaAmbos> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "Histórico Recente",
+                'Histórico Recente',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               _buildTripItemCarona(
-                "Campos Novos -> Unoesc",
-                "Gustavo",
-                "- R\$ 6,25",
+                'Campos Novos -> Unoesc',
+                'Gustavo',
+                '- R\$ 6,25',
               ),
               _buildTripItemCarona(
-                "Centro -> Bairro Novo",
-                "Carlos",
-                "- R\$ 8,50",
+                'Centro -> Bairro Novo',
+                'Carlos',
+                '- R\$ 8,50',
               ),
             ],
           ),
@@ -572,7 +569,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "Sua Próxima Viagem",
+                'Sua Próxima Viagem',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -581,7 +578,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
                   side: BorderSide(
-                    color: verdePrincipal.withValues(alpha: 0.5),
+                    color: AppColors.verdePrincipal.withValues(alpha: 0.5),
                     width: 1.5,
                   ),
                 ),
@@ -594,12 +591,13 @@ class _TelaAmbosState extends State<TelaAmbos> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: verdePrincipal.withValues(alpha: 0.1),
+                              color: AppColors.verdePrincipal
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(
                               Icons.schedule,
-                              color: verdePrincipal,
+                              color: AppColors.verdePrincipal,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -607,14 +605,14 @@ class _TelaAmbosState extends State<TelaAmbos> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                "Hoje, 18:30",
+                                'Hoje, 18:30',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                 ),
                               ),
                               Text(
-                                "Campos Novos -> Unoesc",
+                                'Campos Novos -> Unoesc',
                                 style: TextStyle(
                                   color: Colors.grey,
                                   fontSize: 14,
@@ -629,17 +627,17 @@ class _TelaAmbosState extends State<TelaAmbos> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            "3 Colegas confirmados",
+                            '3 Colegas confirmados',
                             style: TextStyle(fontWeight: FontWeight.w500),
                           ),
                           ElevatedButton(
                             onPressed: () {},
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: verdePrincipal,
+                              backgroundColor: AppColors.verdePrincipal,
                               foregroundColor: Colors.white,
                               elevation: 0,
                             ),
-                            child: const Text("Iniciar"),
+                            child: const Text('Iniciar'),
                           ),
                         ],
                       ),
@@ -649,7 +647,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
               ),
               const SizedBox(height: 30),
               const Text(
-                "Viagens Anteriores",
+                'Viagens Anteriores',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -662,10 +660,11 @@ class _TelaAmbosState extends State<TelaAmbos> {
                   ),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: verdePrincipal.withValues(alpha: 0.1),
+                      backgroundColor:
+                          AppColors.verdePrincipal.withValues(alpha: 0.1),
                       child: const Icon(
                         Icons.check_circle,
-                        color: verdePrincipal,
+                        color: AppColors.verdePrincipal,
                       ),
                     ),
                     title: Text(
@@ -680,9 +679,9 @@ class _TelaAmbosState extends State<TelaAmbos> {
                       style: const TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                     trailing: Text(
-                      "${viagem['passageiros'].length} passageiros",
+                      '${viagem['passageiros'].length} passageiros',
                       style: const TextStyle(
-                        color: verdePrincipal,
+                        color: AppColors.verdePrincipal,
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
@@ -698,9 +697,6 @@ class _TelaAmbosState extends State<TelaAmbos> {
     );
   }
 
-  // ==========================================
-  // --- TELA DADOS/REPASSES (MIX DINÂMICO) ---
-  // ==========================================
   Widget _buildTelaDados() {
     String periodoAtivo = _isMotorista
         ? _selectedPeriodGraficoMoto
@@ -715,10 +711,9 @@ class _TelaAmbosState extends State<TelaAmbos> {
 
     final int indexAtivo = _pontoTocadoIndex ?? (dadosAtuais.length - 1);
 
-    String tituloHeader = _isMotorista
-        ? "Controle de Repasses"
-        : "Estatísticas de Gastos";
-    String tituloTag = _isMotorista ? "Valor Arrecadado" : "Valor Gasto";
+    String tituloHeader =
+        _isMotorista ? 'Controle de Repasses' : 'Estatísticas de Gastos';
+    String tituloTag = _isMotorista ? 'Valor Arrecadado' : 'Valor Gasto';
 
     return SingleChildScrollView(
       child: Column(
@@ -727,7 +722,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
             decoration: const BoxDecoration(
-              color: verdePrincipal,
+              color: AppColors.verdePrincipal,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
@@ -743,7 +738,6 @@ class _TelaAmbosState extends State<TelaAmbos> {
             ),
           ),
           const SizedBox(height: 20),
-
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -757,8 +751,6 @@ class _TelaAmbosState extends State<TelaAmbos> {
             ),
           ),
           const SizedBox(height: 24),
-
-          // GRÁFICO (REUTILIZÁVEL)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Card(
@@ -782,11 +774,11 @@ class _TelaAmbosState extends State<TelaAmbos> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            "Visualização $periodoAtivo",
+                            'Visualização $periodoAtivo',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: verdePrincipal,
+                              color: AppColors.verdePrincipal,
                             ),
                           ),
                           Container(
@@ -795,7 +787,8 @@ class _TelaAmbosState extends State<TelaAmbos> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: verdePrincipal.withValues(alpha: 0.1),
+                              color: AppColors.verdePrincipal
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -803,7 +796,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: verdePrincipal,
+                                color: AppColors.verdePrincipal,
                               ),
                             ),
                           ),
@@ -831,7 +824,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                                 ),
                                 painter: PremiumChartPainter(
                                   data: dadosAtuais,
-                                  lineColor: verdePrincipal,
+                                  lineColor: AppColors.verdePrincipal,
                                   selectedIndex: indexAtivo,
                                 ),
                               ),
@@ -850,7 +843,9 @@ class _TelaAmbosState extends State<TelaAmbos> {
                             return Text(
                               label,
                               style: TextStyle(
-                                color: estaAtivo ? verdePrincipal : Colors.grey,
+                                color: estaAtivo
+                                    ? AppColors.verdePrincipal
+                                    : Colors.grey,
                                 fontSize: 12,
                                 fontWeight: estaAtivo
                                     ? FontWeight.bold
@@ -867,8 +862,6 @@ class _TelaAmbosState extends State<TelaAmbos> {
             ),
           ),
           const SizedBox(height: 30),
-
-          // LISTA INFERIOR ESPECÍFICA
           _isMotorista
               ? _buildListaPagamentosMotorista()
               : _buildSaldosPendentesCarona(),
@@ -884,12 +877,12 @@ class _TelaAmbosState extends State<TelaAmbos> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Meus Débitos Pendentes",
+            'Meus Débitos Pendentes',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          _buildDebtCard("Gustavo (Motorista)", "R\$ 12,50"),
-          _buildDebtCard("Carlos", "R\$ 8,50"),
+          _buildDebtCard('Gustavo (Motorista)', 'R\$ 12,50'),
+          _buildDebtCard('Carlos', 'R\$ 8,50'),
           const SizedBox(height: 30),
         ],
       ),
@@ -902,8 +895,8 @@ class _TelaAmbosState extends State<TelaAmbos> {
     );
     List<Map<String, dynamic>> viagensParaExibir = temPendentes
         ? _historicoViagensMoto
-              .where((v) => v['passageiros'].any((p) => p['pago'] == false))
-              .toList()
+            .where((v) => v['passageiros'].any((p) => p['pago'] == false))
+            .toList()
         : _historicoViagensMoto.take(3).toList();
 
     return Padding(
@@ -915,7 +908,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                temPendentes ? "Corridas em Aberto" : "Últimas Corridas",
+                temPendentes ? 'Corridas em Aberto' : 'Últimas Corridas',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -932,7 +925,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
-                    "Pendências",
+                    'Pendências',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -975,7 +968,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: verdePrincipal.withValues(alpha: 0.05),
+              color: AppColors.verdePrincipal.withValues(alpha: 0.05),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(15),
               ),
@@ -1004,16 +997,16 @@ class _TelaAmbosState extends State<TelaAmbos> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     const Text(
-                      "Arrecadado",
+                      'Arrecadado',
                       style: TextStyle(color: Colors.grey, fontSize: 11),
                     ),
                     Text(
-                      "R\$ ${totalPago.toStringAsFixed(2)} / R\$ ${totalEsperado.toStringAsFixed(2)}",
+                      'R\$ ${totalPago.toStringAsFixed(2)} / R\$ ${totalEsperado.toStringAsFixed(2)}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: totalPago == totalEsperado
                             ? Colors.green
-                            : verdePrincipal,
+                            : AppColors.verdePrincipal,
                       ),
                     ),
                   ],
@@ -1054,7 +1047,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                                 ),
                               ),
                               Text(
-                                "R\$ ${pass['valor'].toStringAsFixed(2)}",
+                                'R\$ ${pass['valor'].toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   color: Colors.grey,
                                   fontSize: 12,
@@ -1065,11 +1058,10 @@ class _TelaAmbosState extends State<TelaAmbos> {
                         ],
                       ),
                       GestureDetector(
-                        onTap: () => setState(
-                          () =>
-                              _historicoViagensMoto[indexOriginal]['passageiros'][indexPassageiro]['pago'] =
-                                  !isPago,
-                        ),
+                        onTap: () => setState(() {
+                          _historicoViagensMoto[indexOriginal]['passageiros']
+                              [indexPassageiro]['pago'] = !isPago;
+                        }),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(
@@ -1098,7 +1090,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                isPago ? "Pago" : "Pendente",
+                                isPago ? 'Pago' : 'Pendente',
                                 style: TextStyle(
                                   color: isPago ? Colors.green : Colors.orange,
                                   fontWeight: FontWeight.bold,
@@ -1120,9 +1112,6 @@ class _TelaAmbosState extends State<TelaAmbos> {
     );
   }
 
-  // ==========================================
-  // --- ABAS UNIFICADAS (GRUPOS, CHAT, PERFIL) ---
-  // ==========================================
   Widget _buildTelaGrupos() {
     return Column(
       children: [
@@ -1130,14 +1119,14 @@ class _TelaAmbosState extends State<TelaAmbos> {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
           decoration: const BoxDecoration(
-            color: verdePrincipal,
+            color: AppColors.verdePrincipal,
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(30),
               bottomRight: Radius.circular(30),
             ),
           ),
           child: const Text(
-            "Grupos de Carona",
+            'Grupos de Carona',
             style: TextStyle(
               color: Colors.white,
               fontSize: 24,
@@ -1150,7 +1139,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
             padding: const EdgeInsets.all(20),
             children: [
               const Text(
-                "Ações Rápidas",
+                'Ações Rápidas',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1160,17 +1149,17 @@ class _TelaAmbosState extends State<TelaAmbos> {
               const SizedBox(height: 10),
               _buildOpcaoCard(
                 Icons.add_moderator,
-                "Criar Grupo Privado",
-                "Para colegas com link/senha",
+                'Criar Grupo Privado',
+                'Para colegas com link/senha',
               ),
               _buildOpcaoCard(
                 Icons.search,
-                "Buscar Grupo Público",
-                "Encontre rotas ativas",
+                'Buscar Grupo Público',
+                'Encontre rotas ativas',
               ),
               const SizedBox(height: 30),
               const Text(
-                "Meus Grupos",
+                'Meus Grupos',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1180,13 +1169,13 @@ class _TelaAmbosState extends State<TelaAmbos> {
               const SizedBox(height: 10),
               _buildOpcaoCard(
                 Icons.directions_car,
-                "Unoesc Noturno (Motorista)",
-                "Gerenciar passageiros",
+                'Unoesc Noturno (Motorista)',
+                'Gerenciar passageiros',
               ),
               _buildOpcaoCard(
                 Icons.group,
-                "Campos Novos -> Centro (Passageiro)",
-                "Ver rota e membros",
+                'Campos Novos -> Centro (Passageiro)',
+                'Ver rota e membros',
               ),
             ],
           ),
@@ -1202,14 +1191,14 @@ class _TelaAmbosState extends State<TelaAmbos> {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
           decoration: const BoxDecoration(
-            color: verdePrincipal,
+            color: AppColors.verdePrincipal,
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(30),
               bottomRight: Radius.circular(30),
             ),
           ),
           child: const Text(
-            "Mensagens",
+            'Mensagens',
             style: TextStyle(
               color: Colors.white,
               fontSize: 24,
@@ -1222,7 +1211,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
             padding: const EdgeInsets.all(20),
             children: [
               const Text(
-                "Conversas Ativas",
+                'Conversas Ativas',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1231,14 +1220,14 @@ class _TelaAmbosState extends State<TelaAmbos> {
               ),
               const SizedBox(height: 10),
               _buildChatItem(
-                "Ana Clara",
-                "Me avisa quando estiver chegando!",
-                "Agora",
+                'Ana Clara',
+                'Me avisa quando estiver chegando!',
+                'Agora',
               ),
               _buildChatItem(
-                "Grupo: Unoesc Noturno",
-                "Gustavo: Saindo em 10 min",
-                "18:00",
+                'Grupo: Unoesc Noturno',
+                'Gustavo: Saindo em 10 min',
+                '18:00',
               ),
             ],
           ),
@@ -1255,7 +1244,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 50, 20, 30),
             decoration: const BoxDecoration(
-              color: verdePrincipal,
+              color: AppColors.verdePrincipal,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
@@ -1264,7 +1253,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
             child: Column(
               children: [
                 const Text(
-                  "Meu Perfil",
+                  'Meu Perfil',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -1292,7 +1281,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                       ),
                       child: const Icon(
                         Icons.camera_alt,
-                        color: verdePrincipal,
+                        color: AppColors.verdePrincipal,
                         size: 20,
                       ),
                     ),
@@ -1300,7 +1289,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  widget.user?.name ?? "Daniel Bezerra",
+                  widget.user?.name ?? 'Daniel Bezerra',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
@@ -1318,7 +1307,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
-                    "Perfil Misto (Passageiro & Motorista)",
+                    'Perfil Misto (Passageiro & Motorista)',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -1334,39 +1323,36 @@ class _TelaAmbosState extends State<TelaAmbos> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children: [
-                // MIX DE OPÇÕES (Carona + Motorista)
                 _buildOpcaoCard(
                   Icons.person_outline,
-                  "Meus Dados",
-                  "Informações pessoais e CNH",
+                  'Meus Dados',
+                  'Informações pessoais e CNH',
                 ),
                 _buildOpcaoCard(
                   Icons.directions_car,
-                  "Meu Veículo",
-                  "Placa, modelo e capacidade (Apenas Motorista)",
+                  'Meu Veículo',
+                  'Placa, modelo e capacidade (Apenas Motorista)',
                 ),
                 _buildOpcaoCard(
                   Icons.account_balance_wallet,
-                  "Dados Financeiros",
-                  "Chave Pix e Formas de Pagamento",
+                  'Dados Financeiros',
+                  'Chave Pix e Formas de Pagamento',
                 ),
                 _buildOpcaoCard(
                   Icons.group_add_outlined,
-                  "Convidar Amigos",
-                  "Compartilhe seu código de referência",
+                  'Convidar Amigos',
+                  'Compartilhe seu código de referência',
                 ),
                 _buildOpcaoCard(
                   Icons.shield_outlined,
-                  "Segurança",
-                  "Gerencie senhas e privacidade",
+                  'Segurança',
+                  'Gerencie senhas e privacidade',
                 ),
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => Navigator.of(
-                      context,
-                    ).popUntil((route) => route.isFirst),
+                    onPressed: _handleLogout,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red[50],
                       foregroundColor: Colors.red,
@@ -1382,7 +1368,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                         Icon(Icons.exit_to_app),
                         SizedBox(width: 8),
                         Text(
-                          "Sair",
+                          'Sair',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -1399,16 +1385,6 @@ class _TelaAmbosState extends State<TelaAmbos> {
         ],
       ),
     );
-  }
-
-  // ==========================================
-  // --- WIDGETS AUXILIARES GERAIS ---
-  // ==========================================
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) return "Bom dia";
-    if (hour >= 12 && hour < 18) return "Boa tarde";
-    return "Boa noite";
   }
 
   Widget _buildPeriodButtonDados(String label, String period) {
@@ -1430,10 +1406,10 @@ class _TelaAmbosState extends State<TelaAmbos> {
         padding: const EdgeInsets.symmetric(vertical: 10),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected ? verdePrincipal : Colors.white,
+          color: isSelected ? AppColors.verdePrincipal : Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? verdePrincipal : Colors.grey[300]!,
+            color: isSelected ? AppColors.verdePrincipal : Colors.grey[300]!,
             width: 1,
           ),
         ),
@@ -1456,14 +1432,15 @@ class _TelaAmbosState extends State<TelaAmbos> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: verdePrincipal.withValues(alpha: 0.1),
-          child: const Icon(Icons.directions_car, color: verdePrincipal),
+          backgroundColor: AppColors.verdePrincipal.withValues(alpha: 0.1),
+          child:
+              const Icon(Icons.directions_car, color: AppColors.verdePrincipal),
         ),
         title: Text(
           titulo,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
-        subtitle: Text("Motorista: $motorista"),
+        subtitle: Text('Motorista: $motorista'),
         trailing: Text(
           valor,
           style: const TextStyle(
@@ -1488,8 +1465,12 @@ class _TelaAmbosState extends State<TelaAmbos> {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: verdePrincipal.withValues(alpha: 0.1),
-                  child: const Icon(Icons.person, color: verdePrincipal),
+                  backgroundColor:
+                      AppColors.verdePrincipal.withValues(alpha: 0.1),
+                  child: const Icon(
+                    Icons.person,
+                    color: AppColors.verdePrincipal,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Column(
@@ -1503,7 +1484,7 @@ class _TelaAmbosState extends State<TelaAmbos> {
                       ),
                     ),
                     const Text(
-                      "Você deve pagar este valor para o motorista",
+                      'Você deve pagar este valor para o motorista',
                       style: TextStyle(
                         color: Colors.orange,
                         fontSize: 12,
@@ -1537,10 +1518,10 @@ class _TelaAmbosState extends State<TelaAmbos> {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: verdePrincipal.withValues(alpha: 0.1),
+            color: AppColors.verdePrincipal.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: verdePrincipal),
+          child: Icon(icon, color: AppColors.verdePrincipal),
         ),
         title: Text(
           title,
@@ -1584,217 +1565,4 @@ class _TelaAmbosState extends State<TelaAmbos> {
       ),
     );
   }
-}
-
-class PremiumChartPainter extends CustomPainter {
-  final List<double> data;
-  final Color lineColor;
-  final int selectedIndex;
-
-  PremiumChartPainter({
-    required this.data,
-    required this.lineColor,
-    required this.selectedIndex,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
-
-    final double paddingEixoY = 40.0;
-    final double paddingPontosSide = 10.0;
-    final double chartHeight = size.height - paddingEixoY;
-    final double chartWidth = size.width - (paddingPontosSide * 2);
-
-    final Paint paintLinha = Paint()
-      ..color = lineColor
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    double maxData = data.reduce((a, b) => a > b ? a : b);
-    if (maxData == 0) maxData = 1.0;
-    maxData = maxData * 1.15;
-
-    final List<Offset> points = [];
-    final double stepX = chartWidth / (data.length - 1);
-
-    for (int i = 0; i < data.length; i++) {
-      double x = paddingPontosSide + (i * stepX);
-      double y = size.height - ((data[i] / maxData) * chartHeight);
-      points.add(Offset(x, y));
-    }
-
-    final Paint paintGrid = Paint()
-      ..color = Colors.grey.withValues(alpha: 0.15)
-      ..strokeWidth = 1;
-    canvas.drawLine(
-      Offset(0, paddingEixoY),
-      Offset(size.width, paddingEixoY),
-      paintGrid,
-    );
-    canvas.drawLine(
-      Offset(0, paddingEixoY + (chartHeight / 2)),
-      Offset(size.width, paddingEixoY + (chartHeight / 2)),
-      paintGrid,
-    );
-    canvas.drawLine(
-      Offset(0, size.height),
-      Offset(size.width, size.height),
-      paintGrid,
-    );
-
-    final Path pathPreenchimento = Path();
-    pathPreenchimento.moveTo(points.first.dx, size.height);
-    pathPreenchimento.lineTo(points.first.dx, points.first.dy);
-    for (int i = 0; i < points.length - 1; i++) {
-      final p1 = points[i];
-      final p2 = points[i + 1];
-      pathPreenchimento.cubicTo(
-        p1.dx + (p2.dx - p1.dx) / 2,
-        p1.dy,
-        p1.dx + (p2.dx - p1.dx) / 2,
-        p2.dy,
-        p2.dx,
-        p2.dy,
-      );
-    }
-    pathPreenchimento.lineTo(points.last.dx, size.height);
-    pathPreenchimento.close();
-
-    Paint paintFill = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          lineColor.withValues(alpha: 0.3),
-          Colors.white.withValues(alpha: 0.0),
-        ],
-      ).createShader(Rect.fromLTRB(0, paddingEixoY, size.width, size.height));
-    canvas.drawPath(pathPreenchimento, paintFill);
-
-    final Path pathLinha = Path();
-    pathLinha.moveTo(points.first.dx, points.first.dy);
-    for (int i = 0; i < points.length - 1; i++) {
-      final p1 = points[i];
-      final p2 = points[i + 1];
-      pathLinha.cubicTo(
-        p1.dx + (p2.dx - p1.dx) / 2,
-        p1.dy,
-        p1.dx + (p2.dx - p1.dx) / 2,
-        p2.dy,
-        p2.dx,
-        p2.dy,
-      );
-    }
-    canvas.drawPath(pathLinha, paintLinha);
-
-    for (int i = 0; i < points.length; i++) {
-      if (i != selectedIndex) {
-        canvas.drawCircle(
-          points[i],
-          4,
-          Paint()
-            ..color = Colors.white
-            ..style = PaintingStyle.fill,
-        );
-        canvas.drawCircle(
-          points[i],
-          4,
-          Paint()
-            ..color = lineColor
-            ..strokeWidth = 2
-            ..style = PaintingStyle.stroke,
-        );
-      }
-    }
-
-    final Offset pontoDestaque = points[selectedIndex];
-    final double valorDestaque = data[selectedIndex];
-
-    canvas.drawLine(
-      pontoDestaque,
-      Offset(pontoDestaque.dx, size.height),
-      Paint()
-        ..color = lineColor.withValues(alpha: 0.3)
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke,
-    );
-    canvas.drawCircle(
-      pontoDestaque,
-      10,
-      Paint()
-        ..color = Colors.black12
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-    );
-    canvas.drawCircle(
-      pontoDestaque,
-      8,
-      Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.fill,
-    );
-    canvas.drawCircle(
-      pontoDestaque,
-      5,
-      Paint()
-        ..color = lineColor
-        ..style = PaintingStyle.fill,
-    );
-
-    String valStr = valorDestaque.toStringAsFixed(2);
-    List<String> partes = valStr.split('.');
-    String inteiros = partes[0].replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    );
-    String textoFinal = 'R\$ $inteiros,${partes[1]}';
-
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: textoFinal,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-
-    final double rectW = textPainter.width + 16;
-    final double rectH = textPainter.height + 10;
-    double rectT = pontoDestaque.dy - rectH - 15;
-    double rectL = pontoDestaque.dx - (rectW / 2);
-
-    if (rectL < 0) rectL = 0;
-    if (rectL + rectW > size.width) rectL = size.width - rectW;
-
-    final RRect tooltipRect = RRect.fromLTRBR(
-      rectL,
-      rectT,
-      rectL + rectW,
-      rectT + rectH,
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(
-      tooltipRect.shift(const Offset(0, 2)),
-      Paint()
-        ..color = Colors.black12
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
-    );
-    canvas.drawRRect(
-      tooltipRect,
-      Paint()
-        ..color = lineColor
-        ..style = PaintingStyle.fill,
-    );
-    textPainter.paint(canvas, Offset(rectL + 8, rectT + 5));
-  }
-
-  @override
-  bool shouldRepaint(PremiumChartPainter oldDelegate) =>
-      oldDelegate.data != data || oldDelegate.selectedIndex != selectedIndex;
 }
