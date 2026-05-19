@@ -7,6 +7,8 @@ abstract class AuthRepository {
     required String name,
     required String email,
     required String password,
+    required String cpf,
+    required DateTime dataNascimento,
     required TipoUsuario tipo,
   });
 }

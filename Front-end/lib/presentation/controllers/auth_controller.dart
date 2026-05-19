@@ -50,6 +50,8 @@ class AuthController extends ChangeNotifier {
     required String email,
     required String password,
     required String confirmPassword,
+    required String cpf,
+    required DateTime? dataNascimento,
     required TipoUsuario tipo,
   }) async {
     try {
@@ -58,6 +60,8 @@ class AuthController extends ChangeNotifier {
         email: email,
         password: password,
         confirmPassword: confirmPassword,
+        cpf: cpf,
+        dataNascimento: dataNascimento,
         tipo: tipo,
       );
       _error = null;

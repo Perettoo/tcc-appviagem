@@ -1,4 +1,5 @@
 import 'package:test_tcc/domain/entities/user.dart';
+import 'package:test_tcc/domain/failures/auth_failure.dart';
 import 'package:test_tcc/domain/repositories/auth_repository.dart';
 
 class LoginUseCase {
@@ -7,6 +8,10 @@ class LoginUseCase {
   const LoginUseCase(this.repository);
 
   Future<User> call({required String identifier, required String password}) {
-    return repository.login(identifier: identifier, password: password);
+    final id = identifier.trim().toLowerCase();
+    if (id.isEmpty || password.isEmpty) {
+      throw const EmptyFieldsFailure();
+    }
+    return repository.login(identifier: id, password: password);
   }
 }

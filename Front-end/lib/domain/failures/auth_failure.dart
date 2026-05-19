@@ -31,3 +31,20 @@ class WeakPasswordFailure extends AuthFailure {
 class PasswordMismatchFailure extends AuthFailure {
   const PasswordMismatchFailure() : super('As senhas não coincidem.');
 }
+
+class CpfInUseFailure extends AuthFailure {
+  const CpfInUseFailure()
+      : super('Este CPF já está cadastrado.');
+}
+
+class InvalidCpfFailure extends AuthFailure {
+  const InvalidCpfFailure() : super('CPF deve conter 11 dígitos.');
+}
+
+class UnderageFailure extends AuthFailure {
+  const UnderageFailure() : super('Usuário deve ter no mínimo 18 anos.');
+}
+
+class RegistrationFailure extends AuthFailure {
+  const RegistrationFailure(super.message);
+}

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:test_tcc/core/theme/app_colors.dart';
 import 'package:test_tcc/domain/entities/user.dart';
@@ -17,8 +18,10 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController controlleremail = TextEditingController();
   final TextEditingController controllersenha = TextEditingController();
   final TextEditingController controllerConfirmarSenha = TextEditingController();
+  final TextEditingController controllerCpf = TextEditingController();
 
-  TipoUsuario _tipoSelecionado = TipoUsuario.carona;
+  DateTime? _dataNascimento;
+  TipoUsuario _tipoSelecionado = TipoUsuario.passageiro;
 
   @override
   void initState() {
@@ -35,7 +38,22 @@ class _RegisterPageState extends State<RegisterPage> {
     controlleremail.dispose();
     controllersenha.dispose();
     controllerConfirmarSenha.dispose();
+    controllerCpf.dispose();
     super.dispose();
+  }
+
+  Future<void> _selecionarData() async {
+    final hoje = DateTime.now();
+    final escolhida = await showDatePicker(
+      context: context,
+      initialDate: _dataNascimento ?? DateTime(hoje.year - 18, hoje.month, hoje.day),
+      firstDate: DateTime(1900),
+      lastDate: hoje,
+      helpText: 'Data de Nascimento',
+    );
+    if (escolhida != null) {
+      setState(() => _dataNascimento = escolhida);
+    }
   }
 
   Future<void> _handleSubmit() async {
@@ -45,6 +63,8 @@ class _RegisterPageState extends State<RegisterPage> {
       email: controlleremail.text,
       password: controllersenha.text,
       confirmPassword: controllerConfirmarSenha.text,
+      cpf: controllerCpf.text,
+      dataNascimento: _dataNascimento,
       tipo: _tipoSelecionado,
     );
     if (!mounted || user == null) return;
@@ -139,6 +159,47 @@ class _RegisterPageState extends State<RegisterPage> {
                           icon: Icons.email,
                         ),
                         const SizedBox(height: 16),
+                        TextField(
+                          controller: controllerCpf,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(11),
+                          ],
+                          decoration: InputDecoration(
+                            labelText: 'CPF (somente números)',
+                            prefixIcon: const Icon(Icons.badge),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        InkWell(
+                          onTap: _selecionarData,
+                          borderRadius: BorderRadius.circular(12),
+                          child: InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: 'Data de Nascimento',
+                              prefixIcon: const Icon(Icons.calendar_today),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              _dataNascimento == null
+                                  ? 'Selecione uma data'
+                                  : '${_dataNascimento!.day.toString().padLeft(2, '0')}/${_dataNascimento!.month.toString().padLeft(2, '0')}/${_dataNascimento!.year}',
+                              style: TextStyle(
+                                color: _dataNascimento == null
+                                    ? Colors.grey
+                                    : Colors.black87,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
                         CampoFormulario(
                           label: 'Senha',
                           isPassword: true,
@@ -198,7 +259,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                 runSpacing: 10,
                                 alignment: WrapAlignment.center,
                                 children: [
-                                  _buildChip('Passageiro', TipoUsuario.carona),
+                                  _buildChip('Passageiro', TipoUsuario.passageiro),
                                   _buildChip('Motorista', TipoUsuario.motorista),
                                   _buildChip('Ambos', TipoUsuario.ambos),
                                 ],

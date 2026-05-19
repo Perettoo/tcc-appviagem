@@ -21,7 +21,7 @@ class UserDashboard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                usuario.tipo == TipoUsuario.carona
+                usuario.tipo == TipoUsuario.passageiro
                     ? Icons.person
                     : usuario.tipo == TipoUsuario.motorista
                     ? Icons.directions_car

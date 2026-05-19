@@ -35,7 +35,7 @@ class _LoginPageState extends State<LoginPage> {
         return MotoristaPage(user: user);
       case TipoUsuario.ambos:
         return AmbosPage(user: user);
-      case TipoUsuario.carona:
+      case TipoUsuario.passageiro:
         return CaronaPage(user: user);
     }
   }

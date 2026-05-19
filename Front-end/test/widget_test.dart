@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:test_tcc/data/datasources/auth_remote_datasource.dart';
 import 'package:test_tcc/data/datasources/user_local_datasource.dart';
 import 'package:test_tcc/data/repositories/auth_repository_impl.dart';
 import 'package:test_tcc/data/repositories/user_repository_impl.dart';
@@ -19,8 +20,10 @@ void main() {
       MultiProvider(
         providers: [
           Provider<UserLocalDatasource>(create: (_) => UserLocalDatasource()),
-          ProxyProvider<UserLocalDatasource, AuthRepository>(
-            update: (_, ds, _) => AuthRepositoryImpl(ds),
+          Provider<AuthRemoteDatasource>(create: (_) => AuthRemoteDatasource()),
+          ProxyProvider2<UserLocalDatasource, AuthRemoteDatasource,
+              AuthRepository>(
+            update: (_, local, remote, _) => AuthRepositoryImpl(local, remote),
           ),
           ProxyProvider<UserLocalDatasource, UserRepository>(
             update: (_, ds, _) => UserRepositoryImpl(ds),
