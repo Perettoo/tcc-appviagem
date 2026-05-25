@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:test_tcc/app.dart';
 import 'package:test_tcc/data/datasources/auth_remote_datasource.dart';
+import 'package:test_tcc/data/datasources/token_storage.dart';
 import 'package:test_tcc/data/datasources/user_local_datasource.dart';
 import 'package:test_tcc/data/repositories/auth_repository_impl.dart';
 import 'package:test_tcc/data/repositories/user_repository_impl.dart';
@@ -18,10 +19,14 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
+        Provider<TokenStorage>(create: (_) => TokenStorage()),
         Provider<UserLocalDatasource>(create: (_) => UserLocalDatasource()),
-        Provider<AuthRemoteDatasource>(create: (_) => AuthRemoteDatasource()),
-        ProxyProvider2<UserLocalDatasource, AuthRemoteDatasource, AuthRepository>(
-          update: (_, local, remote, _) => AuthRepositoryImpl(local, remote),
+        ProxyProvider<TokenStorage, AuthRemoteDatasource>(
+          update: (_, storage, _) =>
+              AuthRemoteDatasource(tokenStorage: storage),
+        ),
+        ProxyProvider<AuthRemoteDatasource, AuthRepository>(
+          update: (_, remote, _) => AuthRepositoryImpl(remote),
         ),
         ProxyProvider<UserLocalDatasource, UserRepository>(
           update: (_, ds, _) => UserRepositoryImpl(ds),
@@ -32,7 +37,9 @@ void main() {
         ProxyProvider<AuthRepository, RegisterUseCase>(
           update: (_, repo, _) => RegisterUseCase(repo),
         ),
-        Provider<LogoutUseCase>(create: (_) => const LogoutUseCase()),
+        ProxyProvider<TokenStorage, LogoutUseCase>(
+          update: (_, storage, _) => LogoutUseCase(storage),
+        ),
         ProxyProvider<UserRepository, ListUsersUseCase>(
           update: (_, repo, _) => ListUsersUseCase(repo),
         ),

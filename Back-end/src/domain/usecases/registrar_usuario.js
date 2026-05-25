@@ -2,32 +2,30 @@
 
 const bcrypt = require('bcryptjs');
 const AppError = require('../errors/app_error');
+const security = require('../../core/config/security');
 const usuarioRepository = require('../../data/repositories/usuario_repository');
+const db = require('../../data/models');
 
-const TIPOS_VALIDOS = ['motorista', 'passageiro', 'ambos'];
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const BCRYPT_COST = 10;
-const IDADE_MINIMA = 18;
-const SENHA_TAMANHO_MIN = 8;
+const TIPOS_VALIDOS = db.Usuario.rawAttributes.tipo.values;
 
 function validar(input) {
   const erros = {};
 
-  if (!input.nome || input.nome.trim().length < 2) {
-    erros.nome = 'Nome deve ter ao menos 2 caracteres.';
+  if (!input.nome || input.nome.trim().length < security.NOME_TAMANHO_MIN) {
+    erros.nome = `Nome deve ter ao menos ${security.NOME_TAMANHO_MIN} caracteres.`;
   }
 
-  if (!input.email || !EMAIL_REGEX.test(input.email)) {
+  if (!input.email || !security.EMAIL_REGEX.test(input.email)) {
     erros.email = 'E-mail invalido.';
   }
 
-  if (!input.senha || input.senha.length < SENHA_TAMANHO_MIN) {
-    erros.senha = `Senha deve ter ao menos ${SENHA_TAMANHO_MIN} caracteres.`;
+  if (!input.senha || input.senha.length < security.SENHA_TAMANHO_MIN) {
+    erros.senha = `Senha deve ter ao menos ${security.SENHA_TAMANHO_MIN} caracteres.`;
   }
 
   const cpfDigitos = (input.cpf || '').replace(/\D/g, '');
-  if (cpfDigitos.length !== 11) {
-    erros.cpf = 'CPF deve ter 11 digitos.';
+  if (cpfDigitos.length !== security.CPF_TAMANHO) {
+    erros.cpf = `CPF deve ter ${security.CPF_TAMANHO} digitos.`;
   }
 
   const dataNasc = input.dataNascimento ? new Date(input.dataNascimento) : null;
@@ -37,8 +35,8 @@ function validar(input) {
     const hoje = new Date();
     const idade = hoje.getFullYear() - dataNasc.getFullYear()
       - (hoje < new Date(hoje.getFullYear(), dataNasc.getMonth(), dataNasc.getDate()) ? 1 : 0);
-    if (idade < IDADE_MINIMA) {
-      erros.dataNascimento = `Usuario deve ter no minimo ${IDADE_MINIMA} anos.`;
+    if (idade < security.IDADE_MINIMA) {
+      erros.dataNascimento = `Usuario deve ter no minimo ${security.IDADE_MINIMA} anos.`;
     }
   }
 
@@ -68,7 +66,7 @@ async function registrarUsuario(input) {
     throw AppError.conflict('CPF ja cadastrado.', { campo: 'cpf' });
   }
 
-  const senhaHash = await bcrypt.hash(input.senha, BCRYPT_COST);
+  const senhaHash = await bcrypt.hash(input.senha, security.BCRYPT_COST);
 
   const usuario = await usuarioRepository.create({
     nome: input.nome.trim(),

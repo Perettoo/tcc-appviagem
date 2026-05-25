@@ -6,6 +6,7 @@ const cors = require('cors');
 const { sequelize } = require('./config/database');
 const healthRoutes = require('./presentation/routes/health');
 const usuarioRoutes = require('./presentation/routes/usuario');
+const authRoutes = require('./presentation/routes/auth');
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(express.json());
 
 app.use(healthRoutes);
 app.use(usuarioRoutes);
+app.use(authRoutes);
 
 const port = Number(process.env.PORT) || 3000;
 

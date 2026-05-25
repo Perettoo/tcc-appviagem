@@ -1,18 +1,61 @@
 import 'package:dio/dio.dart';
 import 'package:test_tcc/core/config/api_config.dart';
+import 'package:test_tcc/data/datasources/token_storage.dart';
 import 'package:test_tcc/domain/entities/user.dart';
 import 'package:test_tcc/domain/failures/auth_failure.dart';
 
 class AuthRemoteDatasource {
   final Dio _dio;
+  final TokenStorage _tokenStorage;
 
-  AuthRemoteDatasource({Dio? dio})
-      : _dio = dio ??
+  AuthRemoteDatasource({required TokenStorage tokenStorage, Dio? dio})
+      : _tokenStorage = tokenStorage,
+        _dio = dio ??
             Dio(BaseOptions(
               baseUrl: ApiConfig.baseUrl,
               connectTimeout: const Duration(seconds: 8),
               receiveTimeout: const Duration(seconds: 8),
-            ));
+            )) {
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final token = _tokenStorage.read();
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          handler.next(options);
+        },
+      ),
+    );
+  }
+
+  Future<User> login({
+    required String identifier,
+    required String password,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/login',
+        data: {'email': identifier, 'senha': password},
+      );
+      final data = response.data as Map<String, dynamic>;
+      final token = data['token'] as String;
+      final u = data['usuario'] as Map<String, dynamic>;
+
+      _tokenStorage.save(token);
+
+      return User(
+        name: u['nome'] as String,
+        email: u['email'] as String,
+        password: password,
+        cpf: '',
+        dataNascimento: DateTime.parse(u['dataNascimento'] as String),
+        tipo: TipoUsuario.values.firstWhere((t) => t.name == u['tipo']),
+      );
+    } on DioException catch (e) {
+      throw _mapLoginError(e);
+    }
+  }
 
   Future<User> register({
     required String name,
@@ -45,11 +88,19 @@ class AuthRemoteDatasource {
         tipo: TipoUsuario.values.firstWhere((t) => t.name == data['tipo']),
       );
     } on DioException catch (e) {
-      throw _mapError(e);
+      throw _mapRegisterError(e);
     }
   }
 
-  AuthFailure _mapError(DioException e) {
+  AuthFailure _mapLoginError(DioException e) {
+    if (e.response?.statusCode == 401) {
+      return const InvalidCredentialsFailure();
+    }
+    return const RegistrationFailure(
+        'Nao foi possivel conectar ao servidor. Verifique sua conexao.');
+  }
+
+  AuthFailure _mapRegisterError(DioException e) {
     final body = e.response?.data;
     if (body is Map && body['error'] == 'CONFLICT') {
       final campo = (body['details'] as Map?)?['campo'];

@@ -9,6 +9,7 @@ class App extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Compartilhe Caronas',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: const LoginPage(),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:test_tcc/core/config/app_constants.dart';
 import 'package:test_tcc/domain/entities/user.dart';
 import 'package:test_tcc/domain/failures/auth_failure.dart';
 import 'package:test_tcc/domain/usecases/login_usecase.dart';
@@ -24,7 +25,7 @@ class AuthController extends ChangeNotifier {
   User? get currentUser => _currentUser;
   String? get error => _error;
   bool get isAuthenticated => _currentUser != null;
-  bool get isAdmin => _currentUser?.email == 'admin';
+  bool get isAdmin => _currentUser?.email == AppConstants.adminEmail;
 
   Future<bool> login({
     required String identifier,

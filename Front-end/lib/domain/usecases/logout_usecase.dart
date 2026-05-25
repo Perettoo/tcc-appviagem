@@ -1,7 +1,11 @@
+import 'package:test_tcc/data/datasources/token_storage.dart';
+
 class LogoutUseCase {
-  const LogoutUseCase();
+  final TokenStorage tokenStorage;
+
+  const LogoutUseCase(this.tokenStorage);
 
   Future<void> call() async {
-    // No-op no datasource in-memory; existe para padronizar e ser swappable.
+    tokenStorage.clear();
   }
 }
