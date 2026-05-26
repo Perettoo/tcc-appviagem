@@ -1,126 +1,120 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:test_tcc/core/theme/app_colors.dart';
+import 'package:test_tcc/core/theme/app_spacing.dart';
+import 'package:test_tcc/core/theme/app_typography.dart';
+import 'package:test_tcc/domain/entities/grupo.dart';
+import 'package:test_tcc/domain/failures/grupo_failure.dart';
+import 'package:test_tcc/presentation/controllers/grupo_controller.dart';
+import 'package:test_tcc/presentation/widgets/app_card.dart';
+import 'package:test_tcc/presentation/widgets/app_text_field.dart';
+import 'package:test_tcc/presentation/widgets/error_banner.dart';
+import 'package:test_tcc/presentation/widgets/primary_button.dart';
 
-class GerenciarGrupoPage extends StatelessWidget {
-  final String acao; // 'Criar' ou 'Entrar'
-  final String tipo; // 'Privado' ou 'Público'
+class CriarGrupoPage extends StatefulWidget {
+  const CriarGrupoPage({super.key});
 
-  const GerenciarGrupoPage({
-    super.key,
-    required this.acao,
-    required this.tipo,
-  });
+  @override
+  State<CriarGrupoPage> createState() => _CriarGrupoPageState();
+}
+
+class _CriarGrupoPageState extends State<CriarGrupoPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nomeController = TextEditingController();
+  bool _isPrivado = true;
+  bool _submitting = false;
+  String? _erro;
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirmar() async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _submitting = true;
+      _erro = null;
+    });
+    try {
+      final grupo = await context.read<GrupoController>().criar(
+            nome: _nomeController.text,
+            isPrivado: _isPrivado,
+          );
+      if (!mounted) return;
+      Navigator.pop<Grupo>(context, grupo);
+    } on GrupoFailure catch (f) {
+      if (!mounted) return;
+      setState(() {
+        _erro = f.message;
+        _submitting = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.fundoLeve,
-      appBar: AppBar(
-        backgroundColor: AppColors.verdePrincipal,
-        elevation: 0,
-        title: Text(
-          '$acao Grupo $tipo',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      appBar: AppBar(title: const Text('Criar grupo')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              acao == 'Criar'
-                  ? 'Preencha os dados para criar o seu novo grupo de caronas.'
-                  : 'Busque ou insira o código para entrar no grupo.',
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 30),
-            if (acao == 'Criar') ...[
-              const Text(
-                'Nome do Grupo',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Ex: Unoesc Noturno - Eng. Computação',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Rota Principal',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Ex: Campos Novos -> Joaçaba',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ] else ...[
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Text(
-                tipo == 'Privado' ? 'Código do Convite' : 'Buscar Rota/Nome',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                'Crie um grupo para organizar as caronas com seus colegas.',
+                style: AppTypography.body,
               ),
-              const SizedBox(height: 8),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: tipo == 'Privado'
-                      ? 'Insira o código de 6 dígitos'
-                      : 'Digite o nome da faculdade ou cidade',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+              const SizedBox(height: AppSpacing.xl),
+              AppTextField(
+                label: 'Nome do grupo',
+                controller: _nomeController,
+                icon: Icons.groups_outlined,
+                hint: 'Ex: Unoesc Noturno - Eng. Computação',
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _confirmar(),
+                validator: (v) => (v == null || v.trim().length < 3)
+                    ? 'O nome deve ter ao menos 3 caracteres.'
+                    : null,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.xs,
                   ),
-                  prefixIcon: Icon(
-                    tipo == 'Privado' ? Icons.lock : Icons.search,
-                    color: Colors.grey,
+                  activeThumbColor: AppColors.primary,
+                  title: const Text('Grupo privado', style: AppTypography.label),
+                  subtitle: Text(
+                    _isPrivado
+                        ? 'Só entra quem tiver o convite.'
+                        : 'Qualquer pessoa pode encontrar e entrar.',
+                    style: AppTypography.caption,
                   ),
+                  value: _isPrivado,
+                  onChanged: _submitting
+                      ? null
+                      : (v) => setState(() => _isPrivado = v),
                 ),
+              ),
+              if (_erro != null) ...[
+                const SizedBox(height: AppSpacing.lg),
+                ErrorBanner(message: _erro!),
+              ],
+              const SizedBox(height: AppSpacing.xl),
+              PrimaryButton(
+                label: 'Criar grupo',
+                loading: _submitting,
+                onPressed: _confirmar,
               ),
             ],
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.verdePrincipal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  acao == 'Criar' ? 'Confirmar Criação' : 'Buscar Grupo',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -47,8 +47,6 @@ class AuthRemoteDatasource {
       return User(
         name: u['nome'] as String,
         email: u['email'] as String,
-        password: password,
-        cpf: '',
         dataNascimento: DateTime.parse(u['dataNascimento'] as String),
         tipo: TipoUsuario.values.firstWhere((t) => t.name == u['tipo']),
       );
@@ -82,8 +80,6 @@ class AuthRemoteDatasource {
       return User(
         name: data['nome'] as String,
         email: data['email'] as String,
-        password: password,
-        cpf: cpf,
         dataNascimento: DateTime.parse(data['dataNascimento'] as String),
         tipo: TipoUsuario.values.firstWhere((t) => t.name == data['tipo']),
       );

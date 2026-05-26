@@ -2,35 +2,41 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:test_tcc/app.dart';
 import 'package:test_tcc/data/datasources/auth_remote_datasource.dart';
+import 'package:test_tcc/data/datasources/grupo_remote_datasource.dart';
 import 'package:test_tcc/data/datasources/token_storage.dart';
-import 'package:test_tcc/data/datasources/user_local_datasource.dart';
 import 'package:test_tcc/data/repositories/auth_repository_impl.dart';
-import 'package:test_tcc/data/repositories/user_repository_impl.dart';
+import 'package:test_tcc/data/repositories/grupo_repository_impl.dart';
 import 'package:test_tcc/domain/repositories/auth_repository.dart';
-import 'package:test_tcc/domain/repositories/user_repository.dart';
-import 'package:test_tcc/domain/usecases/delete_user_usecase.dart';
-import 'package:test_tcc/domain/usecases/list_users_usecase.dart';
+import 'package:test_tcc/domain/repositories/grupo_repository.dart';
+import 'package:test_tcc/domain/usecases/criar_grupo_usecase.dart';
+import 'package:test_tcc/domain/usecases/listar_grupos_usecase.dart';
 import 'package:test_tcc/domain/usecases/login_usecase.dart';
 import 'package:test_tcc/domain/usecases/logout_usecase.dart';
 import 'package:test_tcc/domain/usecases/register_usecase.dart';
 import 'package:test_tcc/presentation/controllers/auth_controller.dart';
+import 'package:test_tcc/presentation/controllers/grupo_controller.dart';
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
+        // Infra
         Provider<TokenStorage>(create: (_) => TokenStorage()),
-        Provider<UserLocalDatasource>(create: (_) => UserLocalDatasource()),
         ProxyProvider<TokenStorage, AuthRemoteDatasource>(
-          update: (_, storage, _) =>
-              AuthRemoteDatasource(tokenStorage: storage),
+          update: (_, storage, _) => AuthRemoteDatasource(tokenStorage: storage),
         ),
+        ProxyProvider<TokenStorage, GrupoRemoteDatasource>(
+          update: (_, storage, _) =>
+              GrupoRemoteDatasource(tokenStorage: storage),
+        ),
+        // Repositórios
         ProxyProvider<AuthRemoteDatasource, AuthRepository>(
           update: (_, remote, _) => AuthRepositoryImpl(remote),
         ),
-        ProxyProvider<UserLocalDatasource, UserRepository>(
-          update: (_, ds, _) => UserRepositoryImpl(ds),
+        ProxyProvider<GrupoRemoteDatasource, GrupoRepository>(
+          update: (_, remote, _) => GrupoRepositoryImpl(remote),
         ),
+        // Casos de uso
         ProxyProvider<AuthRepository, LoginUseCase>(
           update: (_, repo, _) => LoginUseCase(repo),
         ),
@@ -40,12 +46,13 @@ void main() {
         ProxyProvider<TokenStorage, LogoutUseCase>(
           update: (_, storage, _) => LogoutUseCase(storage),
         ),
-        ProxyProvider<UserRepository, ListUsersUseCase>(
-          update: (_, repo, _) => ListUsersUseCase(repo),
+        ProxyProvider<GrupoRepository, CriarGrupoUseCase>(
+          update: (_, repo, _) => CriarGrupoUseCase(repo),
         ),
-        ProxyProvider<UserRepository, DeleteUserUseCase>(
-          update: (_, repo, _) => DeleteUserUseCase(repo),
+        ProxyProvider<GrupoRepository, ListarGruposUseCase>(
+          update: (_, repo, _) => ListarGruposUseCase(repo),
         ),
+        // Controllers
         ChangeNotifierProxyProvider3<LoginUseCase, RegisterUseCase,
             LogoutUseCase, AuthController>(
           create: (ctx) => AuthController(
@@ -60,6 +67,15 @@ void main() {
                 registerUseCase: register,
                 logoutUseCase: logout,
               ),
+        ),
+        ChangeNotifierProxyProvider2<ListarGruposUseCase, CriarGrupoUseCase,
+            GrupoController>(
+          create: (ctx) => GrupoController(
+            listar: ctx.read<ListarGruposUseCase>(),
+            criar: ctx.read<CriarGrupoUseCase>(),
+          ),
+          update: (_, listar, criar, previous) =>
+              previous ?? GrupoController(listar: listar, criar: criar),
         ),
       ],
       child: const App(),
