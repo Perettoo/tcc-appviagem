@@ -24,6 +24,11 @@ class EmailInUseFailure extends AuthFailure {
       : super('Este e-mail já está em uso por outra conta.');
 }
 
+class NameInUseFailure extends AuthFailure {
+  const NameInUseFailure()
+      : super('Este nome já está em uso. Escolha outro para o login.');
+}
+
 class WeakPasswordFailure extends AuthFailure {
   const WeakPasswordFailure() : super('A senha deve ter no mínimo 8 caracteres.');
 }

@@ -36,7 +36,7 @@ class AuthRemoteDatasource {
     try {
       final response = await _dio.post(
         '/auth/login',
-        data: {'email': identifier, 'senha': password},
+        data: {'identificador': identifier, 'senha': password},
       );
       final data = response.data as Map<String, dynamic>;
       final token = data['token'] as String;
@@ -102,6 +102,7 @@ class AuthRemoteDatasource {
       final campo = (body['details'] as Map?)?['campo'];
       if (campo == 'email') return const EmailInUseFailure();
       if (campo == 'cpf') return const CpfInUseFailure();
+      if (campo == 'nome') return const NameInUseFailure();
     }
     if (body is Map && body['error'] == 'VALIDATION') {
       final details = body['details'] as Map?;

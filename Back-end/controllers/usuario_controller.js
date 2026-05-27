@@ -55,16 +55,26 @@ async function registrar(req, res) {
     const input = req.body;
     const { cpfDigitos } = validar(input);
     const email = input.email.trim().toLowerCase();
+    const nome = input.nome.trim();
 
-    const [emailExistente, cpfExistente] = await Promise.all([
+    const [emailExistente, cpfExistente, nomeExistente] = await Promise.all([
       db.Usuario.findOne({ where: { email } }),
       db.Usuario.findOne({ where: { cpf: cpfDigitos } }),
+      db.Usuario.findOne({
+        where: db.sequelize.where(
+          db.sequelize.fn('LOWER', db.sequelize.col('nome')),
+          nome.toLowerCase(),
+        ),
+      }),
     ]);
     if (emailExistente) {
       throw AppError.conflict('E-mail ja cadastrado.', { campo: 'email' });
     }
     if (cpfExistente) {
       throw AppError.conflict('CPF ja cadastrado.', { campo: 'cpf' });
+    }
+    if (nomeExistente) {
+      throw AppError.conflict('Nome ja cadastrado.', { campo: 'nome' });
     }
 
     const senhaHash = await bcrypt.hash(input.senha, security.BCRYPT_COST);

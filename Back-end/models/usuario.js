@@ -12,6 +12,7 @@ module.exports = (sequelize, DataTypes) => {
       nome: {
         type: DataTypes.STRING(120),
         allowNull: false,
+        unique: true,
       },
       email: {
         type: DataTypes.STRING(180),

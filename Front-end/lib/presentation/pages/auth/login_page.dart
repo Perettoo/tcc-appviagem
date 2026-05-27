@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:test_tcc/core/theme/app_colors.dart';
 import 'package:test_tcc/core/theme/app_spacing.dart';
-import 'package:test_tcc/core/utils/email_validator.dart';
 import 'package:test_tcc/presentation/controllers/auth_controller.dart';
 import 'package:test_tcc/presentation/pages/auth/register_page.dart';
 import 'package:test_tcc/presentation/widgets/app_text_field.dart';
@@ -19,7 +18,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _senhaController = TextEditingController();
   bool _submitting = false;
 
@@ -33,7 +32,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _senhaController.dispose();
     super.dispose();
   }
@@ -43,7 +42,7 @@ class _LoginPageState extends State<LoginPage> {
     FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
     await context.read<AuthController>().login(
-          identifier: _emailController.text,
+          identifier: _identifierController.text,
           password: _senhaController.text,
         );
     // Em caso de sucesso, o AuthGate troca de tela e este widget é descartado.
@@ -82,18 +81,13 @@ class _LoginPageState extends State<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     AppTextField(
-                      label: 'E-mail',
-                      controller: _emailController,
-                      icon: Icons.mail_outline,
-                      keyboardType: TextInputType.emailAddress,
+                      label: 'E-mail ou nome de usuário',
+                      controller: _identifierController,
+                      icon: Icons.person_outline,
                       textInputAction: TextInputAction.next,
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Informe seu e-mail.';
-                        }
-                        if (!isValidEmail(v)) return 'E-mail inválido.';
-                        return null;
-                      },
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Informe seu e-mail ou nome de usuário.'
+                          : null,
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     AppTextField(

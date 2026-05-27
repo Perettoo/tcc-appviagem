@@ -5,20 +5,37 @@ const jwt = require('jsonwebtoken');
 const db = require('../models');
 const AppError = require('../utils/app_error');
 const jwtConfig = require('../config/jwt');
+const security = require('../config/security');
 
-const CREDENCIAIS_INVALIDAS = 'Email ou senha invalidos.';
+const CREDENCIAIS_INVALIDAS = 'Usuario ou senha invalidos.';
 const USUARIO_INATIVO = 'Usuario inativo. Contate o administrador.';
+
+// O usuario pode logar pelo email OU pelo nome. Decidimos pelo formato:
+// se parece email, busca por email (normalizado); senao, busca por nome
+// (case-insensitive). Assim nunca ha ambiguidade entre os dois campos.
+function buscarPorIdentificador(identificador) {
+  const valor = identificador.trim();
+  if (security.EMAIL_REGEX.test(valor)) {
+    return db.Usuario.findOne({ where: { email: valor.toLowerCase() } });
+  }
+  return db.Usuario.findOne({
+    where: db.sequelize.where(
+      db.sequelize.fn('LOWER', db.sequelize.col('nome')),
+      valor.toLowerCase(),
+    ),
+  });
+}
 
 async function login(req, res) {
   try {
-    const { email, senha } = req.body;
-    if (!email || !senha) {
+    // Aceita `identificador` (email ou nome); mantem `email` por compat.
+    const identificador = req.body.identificador || req.body.email;
+    const { senha } = req.body;
+    if (!identificador || !senha) {
       throw AppError.validation(CREDENCIAIS_INVALIDAS);
     }
 
-    const usuario = await db.Usuario.findOne({
-      where: { email: email.trim().toLowerCase() },
-    });
+    const usuario = await buscarPorIdentificador(identificador);
 
     // Mesma mensagem pra "nao existe" e "senha errada" (evita enumeration).
     if (!usuario) {
