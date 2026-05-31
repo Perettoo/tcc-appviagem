@@ -122,4 +122,45 @@ async function registrar(req, res) {
   }
 }
 
-module.exports = { registrar };
+// Busca usuarios por nome ou email (para adicionar a um grupo).
+// Exige um termo minimo pra nao despejar a base inteira.
+async function buscar(req, res) {
+  try {
+    const termo = (req.query.busca || '').trim();
+    if (termo.length < security.BUSCA_TAMANHO_MIN) {
+      return res.status(200).json([]);
+    }
+
+    const { Op } = db.Sequelize;
+    const like = `%${termo}%`;
+    const usuarios = await db.Usuario.findAll({
+      where: {
+        ativo: true,
+        [Op.or]: [
+          { nome: { [Op.like]: like } },
+          { email: { [Op.like]: like } },
+        ],
+      },
+      attributes: ['idUsuario', 'nome', 'email', 'tipo'],
+      order: [['nome', 'ASC']],
+      limit: 20,
+    });
+
+    return res.status(200).json(
+      usuarios.map((u) => ({
+        idUsuario: u.idUsuario,
+        nome: u.nome,
+        email: u.email,
+        tipo: u.tipo,
+      })),
+    );
+  } catch (err) {
+    console.error('[usuario_controller.buscar]', err);
+    return res.status(500).json({
+      error: 'INTERNAL',
+      message: 'Erro interno ao buscar usuarios.',
+    });
+  }
+}
+
+module.exports = { registrar, buscar };

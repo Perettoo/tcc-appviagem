@@ -1,13 +1,15 @@
 require('dotenv').config();
 
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 
 const { sequelize } = require('./config/database');
+const { initSocket } = require('./realtime/socket_server');
 const healthRoutes = require('./routes/health');
 const usuarioRoutes = require('./routes/usuario');
 const authRoutes = require('./routes/auth');
-const grupoRoutes = require('./routes/grupo');
+const grupoRoutes = require('./routes/grupo/grupo');
 
 const app = express();
 
@@ -19,12 +21,18 @@ app.use(usuarioRoutes);
 app.use(authRoutes);
 app.use(grupoRoutes);
 
+// Servidor HTTP compartilhado entre Express e Socket.IO.
+const httpServer = http.createServer(app);
+const io = initSocket(httpServer);
+// Disponibiliza o io para os controllers (ex: broadcast de mensagem nova).
+app.set('io', io);
+
 const port = Number(process.env.PORT) || 3000;
 
 sequelize.authenticate()
   .then(() => {
     console.log(`Banco conectado: ${process.env.DB_NAME}`);
-    app.listen(port, () => {
+    httpServer.listen(port, () => {
       console.log(`API rodando em http://localhost:${port}`);
     });
   })

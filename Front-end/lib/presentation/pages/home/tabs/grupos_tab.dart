@@ -4,8 +4,12 @@ import 'package:test_tcc/core/theme/app_colors.dart';
 import 'package:test_tcc/core/theme/app_spacing.dart';
 import 'package:test_tcc/core/theme/app_typography.dart';
 import 'package:test_tcc/domain/entities/grupo.dart';
+import 'package:test_tcc/domain/repositories/chat_repository.dart';
+import 'package:test_tcc/presentation/controllers/auth_controller.dart';
 import 'package:test_tcc/presentation/controllers/grupo_controller.dart';
+import 'package:test_tcc/presentation/controllers/grupo_detalhe_controller.dart';
 import 'package:test_tcc/presentation/pages/grupos/criar_grupo_page.dart';
+import 'package:test_tcc/presentation/pages/grupos/grupo_detalhe_page.dart';
 import 'package:test_tcc/presentation/widgets/app_card.dart';
 import 'package:test_tcc/presentation/widgets/state_views.dart';
 import 'package:test_tcc/presentation/widgets/status_badge.dart';
@@ -112,10 +116,33 @@ class _GrupoCard extends StatelessWidget {
 
   const _GrupoCard({required this.grupo});
 
+  void _abrir(BuildContext context) {
+    // Captura as dependências do escopo autenticado antes de empurrar a rota.
+    final repo = context.read<ChatRepository>();
+    final userId = context.read<AuthController>().currentUser?.idUsuario;
+    if (userId == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        // Controller com escopo da tela: descartado (e socket desconectado)
+        // automaticamente ao sair, pelo ChangeNotifierProvider.
+        builder: (_) => ChangeNotifierProvider(
+          create: (_) => GrupoDetalheController(
+            repo: repo,
+            idGrupo: grupo.idGrupo,
+            currentUserId: userId,
+          )..iniciar(),
+          child: GrupoDetalhePage(grupo: grupo),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppCard(
-      onTap: () {},
+      onTap: () => _abrir(context),
       child: Row(
         children: [
           Container(

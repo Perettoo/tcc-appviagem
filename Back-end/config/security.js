@@ -11,4 +11,7 @@ module.exports = {
   CPF_TAMANHO: 11,
   EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   GRUPO_NOME_TAMANHO_MIN: 3,
+  MENSAGEM_TAMANHO_MIN: 1,
+  MENSAGEM_TAMANHO_MAX: 2000,
+  BUSCA_TAMANHO_MIN: 2,
 };

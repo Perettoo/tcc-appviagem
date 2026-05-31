@@ -45,6 +45,7 @@ class AuthRemoteDatasource {
       _tokenStorage.save(token);
 
       return User(
+        idUsuario: u['idUsuario'] as int,
         name: u['nome'] as String,
         email: u['email'] as String,
         dataNascimento: DateTime.parse(u['dataNascimento'] as String),
@@ -78,6 +79,7 @@ class AuthRemoteDatasource {
       );
       final data = response.data as Map<String, dynamic>;
       return User(
+        idUsuario: data['idUsuario'] as int,
         name: data['nome'] as String,
         email: data['email'] as String,
         dataNascimento: DateTime.parse(data['dataNascimento'] as String),

@@ -48,6 +48,10 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'idGrupo',
       as: 'membros',
     });
+    Grupo.hasMany(models.Mensagem, {
+      foreignKey: 'idGrupo',
+      as: 'mensagens',
+    });
     Grupo.belongsToMany(models.Usuario, {
       through: models.GrupoUsuario,
       foreignKey: 'idGrupo',

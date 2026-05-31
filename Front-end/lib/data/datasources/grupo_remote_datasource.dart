@@ -35,7 +35,7 @@ class GrupoRemoteDatasource {
         '/grupos',
         data: {'nome': nome, 'isPrivado': isPrivado},
       );
-      return _fromJson(response.data as Map<String, dynamic>);
+      return grupoFromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw _mapError(e);
     }
@@ -46,24 +46,12 @@ class GrupoRemoteDatasource {
       final response = await _dio.get('/grupos');
       final list = response.data as List<dynamic>;
       return list
-          .map((e) => _fromJson(e as Map<String, dynamic>))
+          .map((e) => grupoFromJson(e as Map<String, dynamic>))
           .toList(growable: false);
     } on DioException catch (e) {
       throw _mapError(e);
     }
   }
-
-  Grupo _fromJson(Map<String, dynamic> j) {
-    return Grupo(
-      idGrupo: j['idGrupo'] as int,
-      nome: j['nome'] as String,
-      isPrivado: _asBool(j['isPrivado']),
-      isAdm: _asBool(j['isAdm']),
-    );
-  }
-
-  // MySQL pode devolver BOOLEAN como 0/1; normaliza pra bool.
-  bool _asBool(dynamic v) => v == true || v == 1;
 
   GrupoFailure _mapError(DioException e) {
     final body = e.response?.data;
@@ -75,4 +63,17 @@ class GrupoRemoteDatasource {
     return const GrupoOperationFailure(
         'Não foi possível conectar ao servidor. Verifique sua conexão.');
   }
+}
+
+// MySQL pode devolver BOOLEAN como 0/1; normaliza pra bool.
+bool _asBoolGrupo(dynamic v) => v == true || v == 1;
+
+/// Converte o payload de grupo (REST e socket usam o mesmo formato) em [Grupo].
+Grupo grupoFromJson(Map<String, dynamic> j) {
+  return Grupo(
+    idGrupo: j['idGrupo'] as int,
+    nome: j['nome'] as String,
+    isPrivado: _asBoolGrupo(j['isPrivado']),
+    isAdm: _asBoolGrupo(j['isAdm']),
+  );
 }

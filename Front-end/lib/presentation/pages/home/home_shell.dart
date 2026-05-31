@@ -21,8 +21,19 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<GrupoController>().carregar();
+      if (!mounted) return;
+      final grupos = context.read<GrupoController>();
+      grupos.carregar();
+      // Realtime de sessão: recebe ao vivo grupos em que o usuário for
+      // adicionado enquanto está logado. Encerrado no dispose (logout).
+      grupos.iniciarSessaoRealtime();
     });
+  }
+
+  @override
+  void dispose() {
+    context.read<GrupoController>().encerrarSessaoRealtime();
+    super.dispose();
   }
 
   void _irPara(int index) => setState(() => _index = index);
