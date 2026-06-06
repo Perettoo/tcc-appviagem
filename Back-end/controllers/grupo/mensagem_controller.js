@@ -4,21 +4,9 @@ const db = require('../../models');
 const AppError = require('../../utils/app_error');
 const security = require('../../config/security');
 const { ensureMembro } = require('../../utils/membership');
+const { montarPayload, includeMensagem } = require('../../utils/mensagem_payload');
 
 const HISTORICO_LIMITE = 200;
-
-// Formato unico de mensagem usado pelo REST e pelo broadcast do socket,
-// pra que o cliente Flutter tenha um parser so.
-function toPayload(msg) {
-  return {
-    idMensagem: msg.idMensagem,
-    idGrupo: msg.idGrupo,
-    idAutor: msg.idUsuario,
-    autorNome: msg.autor ? msg.autor.nome : null,
-    conteudo: msg.conteudo,
-    dataEnvio: msg.dataEnvio,
-  };
-}
 
 function parseIdGrupo(req) {
   const idGrupo = Number(req.params.idGrupo);
@@ -50,12 +38,12 @@ async function listar(req, res) {
 
     const mensagens = await db.Mensagem.findAll({
       where: { idGrupo, ativo: true },
-      include: [{ model: db.Usuario, as: 'autor', attributes: ['idUsuario', 'nome'] }],
+      include: includeMensagem(db),
       order: [['dataEnvio', 'ASC'], ['idMensagem', 'ASC']],
       limit: HISTORICO_LIMITE,
     });
 
-    return res.status(200).json(mensagens.map(toPayload));
+    return res.status(200).json(mensagens.map(montarPayload));
   } catch (err) {
     return tratarErro(res, err, '[mensagem_controller.listar]');
   }
@@ -84,9 +72,9 @@ async function enviar(req, res) {
 
     // Recarrega com o autor pra montar o payload completo (com nome).
     const msg = await db.Mensagem.findByPk(novo.idMensagem, {
-      include: [{ model: db.Usuario, as: 'autor', attributes: ['idUsuario', 'nome'] }],
+      include: includeMensagem(db),
     });
-    const payload = toPayload(msg);
+    const payload = montarPayload(msg);
 
     // Broadcast realtime pra todos na sala do grupo (inclui o remetente).
     const io = req.app.get('io');

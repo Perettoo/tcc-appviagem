@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:test_tcc/core/config/api_config.dart';
 import 'package:test_tcc/data/datasources/grupo_remote_datasource.dart';
@@ -33,12 +35,20 @@ class SessionSocketService {
     final socket = io.io(
       ApiConfig.baseUrl,
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          // Polling com upgrade pra websocket (ver nota no ChatSocketService):
+          // forçar só websocket derruba o tempo-real em silêncio em redes que
+          // bloqueiam o upgrade.
+          .setTransports(['polling', 'websocket'])
           .disableAutoConnect()
           .setAuth({'token': token})
           .build(),
     );
     _socket = socket;
+
+    socket.onConnect((_) => _log('conectado (sessão)'));
+    socket.onConnectError((e) => _log('connect_error: $e'));
+    socket.onError((e) => _log('error: $e'));
+    socket.onDisconnect((reason) => _log('desconectado: $reason'));
 
     socket.on('grupo:adicionado', (data) {
       if (data is Map && !controller.isClosed) {
@@ -59,5 +69,9 @@ class SessionSocketService {
     }
     _controller?.close();
     _controller = null;
+  }
+
+  void _log(String msg) {
+    if (kDebugMode) developer.log(msg, name: 'SessionSocket');
   }
 }

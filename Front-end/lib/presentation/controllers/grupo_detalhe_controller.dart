@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:test_tcc/domain/entities/carona_resumo.dart';
 import 'package:test_tcc/domain/entities/membro_grupo.dart';
 import 'package:test_tcc/domain/entities/mensagem.dart';
 import 'package:test_tcc/domain/entities/usuario_resumo.dart';
@@ -30,6 +31,10 @@ class GrupoDetalheController extends ChangeNotifier {
   // pelo eco do broadcast no socket.
   final Set<int> _idsVistos = {};
   StreamSubscription<Mensagem>? _sub;
+  StreamSubscription<CaronaResumo>? _caronaSub;
+
+  // Caronas com aceite em andamento (spinner por card).
+  final Set<int> _aceitando = {};
 
   List<Mensagem> get mensagens => _mensagens;
   List<MembroGrupo> get membros => _membros;
@@ -38,11 +43,14 @@ class GrupoDetalheController extends ChangeNotifier {
   String? get error => _error;
 
   bool ehMinha(Mensagem m) => m.idAutor == currentUserId;
+  bool estaAceitando(int idCarona) => _aceitando.contains(idCarona);
 
   Future<void> iniciar() async {
     // Seguro pra ser chamado de novo (retry após erro).
     await _sub?.cancel();
     _sub = null;
+    await _caronaSub?.cancel();
+    _caronaSub = null;
     _loading = true;
     _error = null;
     notifyListeners();
@@ -60,6 +68,8 @@ class GrupoDetalheController extends ChangeNotifier {
 
       // Liga o tempo-real. Falha no socket não derruba o chat (REST segue ok).
       _sub = _repo.conectar(idGrupo).listen(_aoReceber, onError: (_) {});
+      _caronaSub =
+          _repo.caronaUpdates.listen(_aoAtualizarCarona, onError: (_) {});
     } on GrupoFailure catch (f) {
       _error = f.message;
     } catch (_) {
@@ -77,6 +87,40 @@ class GrupoDetalheController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Atualiza o card da carona (ex: virou "aceita"). Chega pela resposta do
+  // PATCH e/ou pelo socket; aplicar duas vezes é idempotente (mesma carona).
+  void _aoAtualizarCarona(CaronaResumo c) {
+    var mudou = false;
+    _mensagens = _mensagens.map((m) {
+      if (m.carona?.idCarona == c.idCarona) {
+        mudou = true;
+        return m.copyWith(carona: c);
+      }
+      return m;
+    }).toList();
+    if (mudou) notifyListeners();
+  }
+
+  /// Aceita uma carona pendente (motorista). O card é atualizado pelo retorno
+  /// e pelo socket. Propaga a mensagem de erro via [error] em caso de falha.
+  Future<bool> aceitarCarona(int idCarona) async {
+    if (_aceitando.contains(idCarona)) return false;
+    _aceitando.add(idCarona);
+    notifyListeners();
+    try {
+      final carona = await _repo.aceitarCarona(idCarona);
+      _aoAtualizarCarona(carona);
+      _error = null;
+      return true;
+    } on GrupoFailure catch (f) {
+      _error = f.message;
+      return false;
+    } finally {
+      _aceitando.remove(idCarona);
+      notifyListeners();
+    }
+  }
+
   Future<bool> enviar(String texto) async {
     final conteudo = texto.trim();
     if (conteudo.isEmpty) return false;
@@ -84,6 +128,26 @@ class GrupoDetalheController extends ChangeNotifier {
     notifyListeners();
     try {
       final msg = await _repo.enviar(idGrupo, conteudo);
+      _aoReceber(msg); // dedupe cuida do eco do socket
+      _error = null;
+      return true;
+    } on GrupoFailure catch (f) {
+      _error = f.message;
+      return false;
+    } finally {
+      _enviando = false;
+      notifyListeners();
+    }
+  }
+
+  /// Solicita uma carona no grupo. O card chega de volta pela resposta do POST
+  /// (e também pelo socket; o dedupe evita duplicar). Reusa o flag [enviando].
+  Future<bool> solicitarCarona() async {
+    if (_enviando) return false;
+    _enviando = true;
+    notifyListeners();
+    try {
+      final msg = await _repo.solicitarCarona(idGrupo);
       _aoReceber(msg); // dedupe cuida do eco do socket
       _error = null;
       return true;
@@ -122,6 +186,7 @@ class GrupoDetalheController extends ChangeNotifier {
   @override
   void dispose() {
     _sub?.cancel();
+    _caronaSub?.cancel();
     _repo.desconectar();
     super.dispose();
   }

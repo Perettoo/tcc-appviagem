@@ -5,13 +5,16 @@ import 'package:provider/provider.dart';
 import 'package:test_tcc/core/theme/app_colors.dart';
 import 'package:test_tcc/core/theme/app_spacing.dart';
 import 'package:test_tcc/core/theme/app_typography.dart';
+import 'package:test_tcc/domain/entities/carona_resumo.dart';
 import 'package:test_tcc/domain/entities/grupo.dart';
 import 'package:test_tcc/domain/entities/mensagem.dart';
 import 'package:test_tcc/domain/entities/user.dart';
 import 'package:test_tcc/domain/entities/usuario_resumo.dart';
 import 'package:test_tcc/domain/failures/grupo_failure.dart';
+import 'package:test_tcc/presentation/controllers/auth_controller.dart';
 import 'package:test_tcc/presentation/controllers/grupo_detalhe_controller.dart';
 import 'package:test_tcc/presentation/widgets/app_card.dart';
+import 'package:test_tcc/presentation/widgets/carona_status_badge.dart';
 import 'package:test_tcc/presentation/widgets/state_views.dart';
 import 'package:test_tcc/presentation/widgets/status_badge.dart';
 
@@ -59,9 +62,57 @@ class _GrupoDetalhePageState extends State<GrupoDetalhePage> {
     }
   }
 
+  Future<void> _solicitarCarona(GrupoDetalheController c) async {
+    if (c.enviando) return;
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Solicitar carona?'),
+        content: const Text(
+          'Vamos enviar um pedido de carona para este grupo. Deseja continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Não'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sim'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true || !mounted) return;
+    final ok = await c.solicitarCarona();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Pedido de carona enviado ao grupo.'
+              : (c.error ?? 'Não foi possível solicitar a carona.'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _aceitarCarona(GrupoDetalheController c, int idCarona) async {
+    final ok = await c.aceitarCarona(idCarona);
+    if (!mounted || ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(c.error ?? 'Não foi possível aceitar a carona.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GrupoDetalheController>();
+
+    // Só motorista/ambos podem aceitar caronas (o gate definitivo é no backend).
+    final user = context.read<AuthController>().currentUser;
+    final podeSerMotorista = user != null &&
+        (user.tipo == TipoUsuario.motorista || user.tipo == TipoUsuario.ambos);
 
     // Rola pro fim quando chega mensagem nova (histórico, envio ou socket).
     if (c.mensagens.length != _shownCount) {
@@ -95,6 +146,9 @@ class _GrupoDetalhePageState extends State<GrupoDetalhePage> {
                         scrollController: _scrollController,
                         msgController: _msgController,
                         onSend: () => _enviar(c),
+                        onCarona: () => _solicitarCarona(c),
+                        podeSerMotorista: podeSerMotorista,
+                        onAceitar: (idCarona) => _aceitarCarona(c, idCarona),
                       ),
                       _MembrosTab(
                         controller: c,
@@ -112,12 +166,18 @@ class _ChatTab extends StatelessWidget {
   final ScrollController scrollController;
   final TextEditingController msgController;
   final VoidCallback onSend;
+  final VoidCallback onCarona;
+  final bool podeSerMotorista;
+  final void Function(int idCarona) onAceitar;
 
   const _ChatTab({
     required this.controller,
     required this.scrollController,
     required this.msgController,
     required this.onSend,
+    required this.onCarona,
+    required this.podeSerMotorista,
+    required this.onAceitar,
   });
 
   @override
@@ -142,7 +202,25 @@ class _ChatTab extends StatelessWidget {
                   itemCount: controller.mensagens.length,
                   itemBuilder: (_, i) {
                     final m = controller.mensagens[i];
-                    return _Bubble(mensagem: m, ehMinha: controller.ehMinha(m));
+                    final ehMinha = controller.ehMinha(m);
+                    if (m.tipo == TipoMensagem.carona) {
+                      final carona = m.carona;
+                      final podeAceitar = podeSerMotorista &&
+                          !ehMinha &&
+                          carona != null &&
+                          carona.status == StatusCarona.pendente;
+                      return _CaronaCard(
+                        mensagem: m,
+                        ehMinha: ehMinha,
+                        podeAceitar: podeAceitar,
+                        aceitando: carona != null &&
+                            controller.estaAceitando(carona.idCarona),
+                        onAceitar: carona == null
+                            ? null
+                            : () => onAceitar(carona.idCarona),
+                      );
+                    }
+                    return _Bubble(mensagem: m, ehMinha: ehMinha);
                   },
                 ),
         ),
@@ -150,6 +228,7 @@ class _ChatTab extends StatelessWidget {
           controller: msgController,
           enviando: controller.enviando,
           onSend: onSend,
+          onCarona: onCarona,
         ),
       ],
     );
@@ -224,15 +303,131 @@ class _Bubble extends StatelessWidget {
   }
 }
 
+/// Card de um pedido de carona no chat (mensagem do tipo CARONA). Fica
+/// centralizado para se destacar das bolhas de texto comuns.
+class _CaronaCard extends StatelessWidget {
+  final Mensagem mensagem;
+  final bool ehMinha;
+  final bool podeAceitar;
+  final bool aceitando;
+  final VoidCallback? onAceitar;
+
+  const _CaronaCard({
+    required this.mensagem,
+    required this.ehMinha,
+    required this.podeAceitar,
+    required this.aceitando,
+    required this.onAceitar,
+  });
+
+  String get _hora {
+    final h = mensagem.dataEnvio.hour.toString().padLeft(2, '0');
+    final m = mensagem.dataEnvio.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final carona = mensagem.carona;
+    final status = carona?.status ?? StatusCarona.pendente;
+    final titulo = ehMinha
+        ? 'Você pediu uma carona'
+        : '${mensagem.autorNome} pediu uma carona';
+    final maxW = MediaQuery.sizeOf(context).width * 0.85;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Center(
+        child: Container(
+          constraints: BoxConstraints(maxWidth: maxW),
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.primarySoft,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const CircleAvatar(
+                    backgroundColor: AppColors.primary,
+                    child: Icon(Icons.directions_car,
+                        color: AppColors.onPrimary, size: 20),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pedido de carona',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(titulo, style: AppTypography.label),
+                        if (status == StatusCarona.aceita &&
+                            carona?.motoristaNome != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Aceita por ${carona!.motoristaNome}',
+                            style: AppTypography.caption,
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            CaronaStatusBadge(status: status),
+                            const Spacer(),
+                            Text(_hora, style: AppTypography.caption),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (podeAceitar) ...[
+                const SizedBox(height: AppSpacing.md),
+                FilledButton.icon(
+                  onPressed: aceitando ? null : onAceitar,
+                  icon: aceitando
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.onPrimary,
+                          ),
+                        )
+                      : const Icon(Icons.check, size: 18),
+                  label: Text(aceitando ? 'Aceitando...' : 'Aceitar carona'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Composer extends StatelessWidget {
   final TextEditingController controller;
   final bool enviando;
   final VoidCallback onSend;
+  final VoidCallback onCarona;
 
   const _Composer({
     required this.controller,
     required this.enviando,
     required this.onSend,
+    required this.onCarona,
   });
 
   @override
@@ -280,8 +475,36 @@ class _Composer extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
+            _CaronaButton(enviando: enviando, onTap: onCarona),
+            const SizedBox(width: AppSpacing.sm),
             _SendButton(enviando: enviando, onSend: onSend),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Botão para pedir uma carona, à direita do campo de texto. Estilo "tonal"
+/// (fundo suave) para se distinguir do botão de enviar (sólido).
+class _CaronaButton extends StatelessWidget {
+  final bool enviando;
+  final VoidCallback onTap;
+
+  const _CaronaButton({required this.enviando, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primarySoft,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: enviando ? null : onTap,
+        child: const Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: Icon(Icons.directions_car_outlined,
+              color: AppColors.primary, size: 20),
         ),
       ),
     );

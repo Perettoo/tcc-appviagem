@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:test_tcc/app.dart';
 import 'package:test_tcc/data/datasources/auth_remote_datasource.dart';
+import 'package:test_tcc/data/datasources/carona_remote_datasource.dart';
 import 'package:test_tcc/data/datasources/chat_remote_datasource.dart';
 import 'package:test_tcc/data/datasources/chat_socket_service.dart';
 import 'package:test_tcc/data/datasources/grupo_remote_datasource.dart';
 import 'package:test_tcc/data/datasources/session_socket_service.dart';
 import 'package:test_tcc/data/datasources/token_storage.dart';
 import 'package:test_tcc/data/repositories/auth_repository_impl.dart';
+import 'package:test_tcc/data/repositories/carona_repository_impl.dart';
 import 'package:test_tcc/data/repositories/chat_repository_impl.dart';
 import 'package:test_tcc/data/repositories/grupo_repository_impl.dart';
 import 'package:test_tcc/domain/repositories/auth_repository.dart';
+import 'package:test_tcc/domain/repositories/carona_repository.dart';
 import 'package:test_tcc/domain/repositories/chat_repository.dart';
 import 'package:test_tcc/domain/repositories/grupo_repository.dart';
 import 'package:test_tcc/domain/usecases/criar_grupo_usecase.dart';
@@ -19,6 +22,7 @@ import 'package:test_tcc/domain/usecases/login_usecase.dart';
 import 'package:test_tcc/domain/usecases/logout_usecase.dart';
 import 'package:test_tcc/domain/usecases/register_usecase.dart';
 import 'package:test_tcc/presentation/controllers/auth_controller.dart';
+import 'package:test_tcc/presentation/controllers/carona_controller.dart';
 import 'package:test_tcc/presentation/controllers/grupo_controller.dart';
 
 void main() {
@@ -40,6 +44,10 @@ void main() {
         ProxyProvider<TokenStorage, ChatSocketService>(
           update: (_, storage, _) => ChatSocketService(tokenStorage: storage),
         ),
+        ProxyProvider<TokenStorage, CaronaRemoteDatasource>(
+          update: (_, storage, _) =>
+              CaronaRemoteDatasource(tokenStorage: storage),
+        ),
         ProxyProvider<TokenStorage, SessionSocketService>(
           update: (_, storage, _) => SessionSocketService(tokenStorage: storage),
         ),
@@ -53,6 +61,9 @@ void main() {
         ProxyProvider2<ChatRemoteDatasource, ChatSocketService, ChatRepository>(
           update: (_, remote, socket, _) =>
               ChatRepositoryImpl(remote: remote, socket: socket),
+        ),
+        ProxyProvider<CaronaRemoteDatasource, CaronaRepository>(
+          update: (_, remote, _) => CaronaRepositoryImpl(remote),
         ),
         // Casos de uso
         ProxyProvider<AuthRepository, LoginUseCase>(
@@ -85,6 +96,10 @@ void main() {
                 registerUseCase: register,
                 logoutUseCase: logout,
               ),
+        ),
+        ChangeNotifierProxyProvider<CaronaRepository, CaronaController>(
+          create: (ctx) => CaronaController(ctx.read<CaronaRepository>()),
+          update: (_, repo, previous) => previous ?? CaronaController(repo),
         ),
         ChangeNotifierProxyProvider3<ListarGruposUseCase, CriarGrupoUseCase,
             SessionSocketService, GrupoController>(

@@ -1,5 +1,6 @@
 import 'package:test_tcc/data/datasources/chat_remote_datasource.dart';
 import 'package:test_tcc/data/datasources/chat_socket_service.dart';
+import 'package:test_tcc/domain/entities/carona_resumo.dart';
 import 'package:test_tcc/domain/entities/membro_grupo.dart';
 import 'package:test_tcc/domain/entities/mensagem.dart';
 import 'package:test_tcc/domain/entities/usuario_resumo.dart';
@@ -30,7 +31,18 @@ class ChatRepositoryImpl implements ChatRepository {
       remote.enviar(idGrupo, conteudo);
 
   @override
+  Future<Mensagem> solicitarCarona(int idGrupo) =>
+      remote.solicitarCarona(idGrupo);
+
+  @override
+  Future<CaronaResumo> aceitarCarona(int idCarona) =>
+      remote.aceitarCarona(idCarona);
+
+  @override
   Stream<Mensagem> conectar(int idGrupo) => socket.conectar(idGrupo);
+
+  @override
+  Stream<CaronaResumo> get caronaUpdates => socket.caronaUpdates;
 
   @override
   void desconectar() => socket.desconectar();
