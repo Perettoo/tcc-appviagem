@@ -39,6 +39,9 @@ class SessionSocketService {
           // forçar só websocket derruba o tempo-real em silêncio em redes que
           // bloqueiam o upgrade.
           .setTransports(['polling', 'websocket'])
+          // Conexão própria (não multiplexar) para não colidir com o socket de
+          // chat, que conecta na mesma URL/namespace. Ver nota no ChatSocket.
+          .enableForceNew()
           .disableAutoConnect()
           .setAuth({'token': token})
           .build(),

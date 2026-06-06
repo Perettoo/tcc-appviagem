@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:test_tcc/domain/entities/user.dart';
 import 'package:test_tcc/presentation/controllers/auth_controller.dart';
+import 'package:test_tcc/presentation/controllers/carona_controller.dart';
+import 'package:test_tcc/presentation/controllers/carro_controller.dart';
 import 'package:test_tcc/presentation/controllers/grupo_controller.dart';
 import 'package:test_tcc/presentation/pages/home/tabs/inicio_tab.dart';
 import 'package:test_tcc/presentation/pages/home/tabs/grupos_tab.dart';
@@ -47,39 +49,52 @@ class _HomeShellState extends State<HomeShell> {
     final podeSerMotorista = user != null &&
         (user.tipo == TipoUsuario.motorista || user.tipo == TipoUsuario.ambos);
 
+    // Controllers globais: cada aba dispara um GET das suas informações ao ser
+    // exibida (onShow), então o conteúdo é sempre buscado fresco do servidor.
+    final grupos = context.read<GrupoController>();
+    final caronas = context.read<CaronaController>();
+    final carros = context.read<CarroController>();
+
     final tabs = <_TabItem>[
       _TabItem(
-        page: InicioTab(onVerGrupos: () => _irPara(1)),
+        page: InicioTab(onVerGrupos: () {
+          _irPara(1);
+          grupos.carregar();
+        }),
         destino: const NavigationDestination(
           icon: Icon(Icons.home_outlined),
           selectedIcon: Icon(Icons.home),
           label: 'Início',
         ),
+        onShow: grupos.carregar,
       ),
-      const _TabItem(
-        page: GruposTab(),
-        destino: NavigationDestination(
+      _TabItem(
+        page: const GruposTab(),
+        destino: const NavigationDestination(
           icon: Icon(Icons.groups_outlined),
           selectedIcon: Icon(Icons.groups),
           label: 'Grupos',
         ),
+        onShow: grupos.carregar,
       ),
       if (podeSerMotorista)
-        const _TabItem(
-          page: CaronasTab(),
-          destino: NavigationDestination(
+        _TabItem(
+          page: const CaronasTab(),
+          destino: const NavigationDestination(
             icon: Icon(Icons.directions_car_outlined),
             selectedIcon: Icon(Icons.directions_car),
             label: 'Caronas',
           ),
+          onShow: caronas.carregar,
         ),
-      const _TabItem(
-        page: PerfilTab(),
-        destino: NavigationDestination(
+      _TabItem(
+        page: const PerfilTab(),
+        destino: const NavigationDestination(
           icon: Icon(Icons.person_outline),
           selectedIcon: Icon(Icons.person),
           label: 'Perfil',
         ),
+        onShow: carros.carregar,
       ),
     ];
 
@@ -93,7 +108,10 @@ class _HomeShellState extends State<HomeShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
-        onDestinationSelected: _irPara,
+        onDestinationSelected: (i) {
+          _irPara(i);
+          tabs[i].onShow?.call();
+        },
         destinations: [for (final t in tabs) t.destino],
       ),
     );
@@ -103,6 +121,8 @@ class _HomeShellState extends State<HomeShell> {
 class _TabItem {
   final Widget page;
   final NavigationDestination destino;
+  // Disparado quando a aba passa a ser exibida: faz o GET das informações dela.
+  final VoidCallback? onShow;
 
-  const _TabItem({required this.page, required this.destino});
+  const _TabItem({required this.page, required this.destino, this.onShow});
 }

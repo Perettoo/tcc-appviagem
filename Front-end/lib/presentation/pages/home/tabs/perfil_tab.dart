@@ -19,16 +19,8 @@ class PerfilTab extends StatefulWidget {
 }
 
 class _PerfilTabState extends State<PerfilTab> {
-  @override
-  void initState() {
-    super.initState();
-    // Carrega os carros uma vez para exibir o carro ativo no perfil.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final c = context.read<CarroController>();
-      if (!c.carregouUmaVez) c.carregar();
-    });
-  }
+  // O GET dos carros (para exibir o carro ativo) é disparado pelo HomeShell
+  // sempre que a aba Perfil é aberta.
 
   Future<void> _editarEmail(User user) async {
     final controller = TextEditingController(text: user.email);

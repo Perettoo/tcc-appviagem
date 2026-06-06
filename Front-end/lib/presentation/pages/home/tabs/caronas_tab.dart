@@ -15,24 +15,9 @@ import 'package:test_tcc/presentation/widgets/carona_status_badge.dart';
 import 'package:test_tcc/presentation/widgets/state_views.dart';
 
 /// Aba "Caronas" (só para motorista/ambos): relação das viagens do usuário
-/// com seus status.
-class CaronasTab extends StatefulWidget {
+/// com seus status. O GET é disparado pelo HomeShell sempre que a aba é aberta.
+class CaronasTab extends StatelessWidget {
   const CaronasTab({super.key});
-
-  @override
-  State<CaronasTab> createState() => _CaronasTabState();
-}
-
-class _CaronasTabState extends State<CaronasTab> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final c = context.read<CaronaController>();
-      if (!c.carregouUmaVez) c.carregar();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {

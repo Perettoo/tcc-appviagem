@@ -50,6 +50,11 @@ class ChatSocketService {
           // conexão morre em silêncio enquanto o REST segue ok — e o chat
           // deixa de ser tempo-real sem aviso.
           .setTransports(['polling', 'websocket'])
+          // Conexão própria (não multiplexar). Sem isto, como o SessionSocket
+          // já conecta na MESMA URL/namespace, o lookup do socket.io devolveria
+          // o socket dele (já conectado) — o onConnect abaixo nunca dispararia,
+          // o 'grupo:entrar' nunca seria emitido e nada de tempo-real chegaria.
+          .enableForceNew()
           .disableAutoConnect()
           .setAuth({'token': token})
           .build(),

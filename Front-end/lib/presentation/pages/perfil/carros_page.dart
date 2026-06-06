@@ -24,10 +24,10 @@ class _CarrosPageState extends State<CarrosPage> {
   @override
   void initState() {
     super.initState();
+    // Cada abertura desta tela faz um GET dos carros (fonte de verdade fresca).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final c = context.read<CarroController>();
-      if (!c.carregouUmaVez) c.carregar();
+      context.read<CarroController>().carregar();
     });
   }
 
