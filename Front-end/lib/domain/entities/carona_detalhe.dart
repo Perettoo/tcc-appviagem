@@ -8,6 +8,28 @@ class PassageiroCarona {
   const PassageiroCarona({required this.idUsuario, required this.nome});
 }
 
+/// O carro atrelado a uma carona (o carro ativo do motorista no aceite).
+class CarroCarona {
+  final int idCarro;
+  final String marca;
+  final String modelo;
+  final int anoFabricacao;
+  final String cor;
+  final String placa;
+
+  const CarroCarona({
+    required this.idCarro,
+    required this.marca,
+    required this.modelo,
+    required this.anoFabricacao,
+    required this.cor,
+    required this.placa,
+  });
+
+  String get descricao => '$marca $modelo';
+  String get detalhe => '$cor • $anoFabricacao';
+}
+
 /// Detalhe de uma carona: motorista + passageiros.
 class CaronaDetalhe {
   final int idCarona;
@@ -17,6 +39,7 @@ class CaronaDetalhe {
   final DateTime data;
   final int? idMotorista;
   final String? motoristaNome;
+  final CarroCarona? carro;
   final List<PassageiroCarona> passageiros;
 
   const CaronaDetalhe({
@@ -27,6 +50,7 @@ class CaronaDetalhe {
     required this.data,
     required this.idMotorista,
     required this.motoristaNome,
+    required this.carro,
     required this.passageiros,
   });
 
@@ -40,6 +64,7 @@ class CaronaDetalhe {
       data: data,
       idMotorista: idMotorista,
       motoristaNome: motoristaNome,
+      carro: carro,
       passageiros: passageiros,
     );
   }

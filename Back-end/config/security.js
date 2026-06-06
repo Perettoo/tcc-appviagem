@@ -29,4 +29,13 @@ module.exports = {
   // Tipos de usuario aptos a aceitar/dirigir uma carona (subconjunto do enum
   // usuario.tipo). Passageiro puro nao pode aceitar.
   CARONA_TIPOS_MOTORISTA: ['motorista', 'ambos'],
+  // Regras do carro. ano maximo e calculado no validator (ano atual + 1).
+  CARRO_TEXTO_MIN: 2,
+  CARRO_ANO_MIN: 1900,
+  // Placa BR apos remover separadores e upcase: antiga AAA9999 e Mercosul
+  // AAA9A99 sao cobertas por 3 letras + digito + (digito|letra) + 2 digitos.
+  CARRO_PLACA_REGEX: /^[A-Z]{3}[0-9][0-9A-Z][0-9]{2}$/,
+  // Mensagem quando um motorista tenta aceitar sem ter um carro ativo.
+  CARRO_OBRIGATORIO_MSG:
+    'Cadastre e selecione um carro ativo antes de aceitar uma carona.',
 };

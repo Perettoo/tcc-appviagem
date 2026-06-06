@@ -236,6 +236,40 @@ class _Conteudo extends StatelessWidget {
           ),
         const SizedBox(height: AppSpacing.xl),
 
+        // Carro (atrelado no aceite). Só aparece quando há um carro definido.
+        if (detalhe.carro != null) ...[
+          Text('Carro', style: AppTypography.label),
+          const SizedBox(height: AppSpacing.sm),
+          AppCard(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child:
+                      const Icon(Icons.directions_car, color: AppColors.primary),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(detalhe.carro!.descricao, style: AppTypography.label),
+                      const SizedBox(height: 2),
+                      Text('${detalhe.carro!.detalhe} • ${detalhe.carro!.placa}',
+                          style: AppTypography.caption),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+        ],
+
         // Passageiros.
         Text('Passageiros (${passageiros.length})', style: AppTypography.label),
         const SizedBox(height: AppSpacing.sm),

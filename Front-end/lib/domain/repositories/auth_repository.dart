@@ -11,4 +11,6 @@ abstract class AuthRepository {
     required DateTime dataNascimento,
     required TipoUsuario tipo,
   });
+
+  Future<User> atualizarPerfil({String? email, DateTime? dataNascimento});
 }

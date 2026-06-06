@@ -60,6 +60,7 @@ module.exports = (sequelize, DataTypes) => {
 
   Usuario.associate = (models) => {
     Usuario.hasMany(models.Log, { foreignKey: 'idUsuario', as: 'logs' });
+    Usuario.hasMany(models.Carro, { foreignKey: 'idUsuario', as: 'carros' });
   };
 
   return Usuario;

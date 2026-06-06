@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
-      // Sem associacao por enquanto: a tabela 'carro' vem depois.
+      // Nulo no pedido; preenchido com o carro ativo do motorista ao aceitar.
       idCarro: {
         type: DataTypes.INTEGER,
         allowNull: true,
@@ -50,6 +50,7 @@ module.exports = (sequelize, DataTypes) => {
   Carona.associate = (models) => {
     Carona.belongsTo(models.Grupo, { foreignKey: 'idGrupo', as: 'grupo' });
     Carona.belongsTo(models.Usuario, { foreignKey: 'idMotorista', as: 'motorista' });
+    Carona.belongsTo(models.Carro, { foreignKey: 'idCarro', as: 'carro' });
     Carona.hasMany(models.CaronaUsuario, { foreignKey: 'idCarona', as: 'passageiros' });
     Carona.hasMany(models.Mensagem, { foreignKey: 'idCarona', as: 'mensagens' });
   };

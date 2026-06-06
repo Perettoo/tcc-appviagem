@@ -8,5 +8,6 @@ const router = Router();
 
 router.get('/usuarios', authenticate, usuarioController.buscar);
 router.post('/usuarios', usuarioController.registrar);
+router.patch('/usuarios/me', authenticate, usuarioController.atualizarMe);
 
 module.exports = router;

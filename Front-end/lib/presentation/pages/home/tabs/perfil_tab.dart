@@ -6,15 +6,87 @@ import 'package:test_tcc/core/theme/app_typography.dart';
 import 'package:test_tcc/core/utils/formatters.dart';
 import 'package:test_tcc/domain/entities/user.dart';
 import 'package:test_tcc/presentation/controllers/auth_controller.dart';
+import 'package:test_tcc/presentation/controllers/carro_controller.dart';
+import 'package:test_tcc/presentation/pages/perfil/carros_page.dart';
 import 'package:test_tcc/presentation/widgets/app_card.dart';
 import 'package:test_tcc/presentation/widgets/status_badge.dart';
 
-class PerfilTab extends StatelessWidget {
+class PerfilTab extends StatefulWidget {
   const PerfilTab({super.key});
+
+  @override
+  State<PerfilTab> createState() => _PerfilTabState();
+}
+
+class _PerfilTabState extends State<PerfilTab> {
+  @override
+  void initState() {
+    super.initState();
+    // Carrega os carros uma vez para exibir o carro ativo no perfil.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final c = context.read<CarroController>();
+      if (!c.carregouUmaVez) c.carregar();
+    });
+  }
+
+  Future<void> _editarEmail(User user) async {
+    final controller = TextEditingController(text: user.email);
+    final novo = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Editar e-mail'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(labelText: 'E-mail'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    if (novo == null || novo.isEmpty || novo == user.email || !mounted) return;
+    final auth = context.read<AuthController>();
+    final ok = await auth.atualizarPerfil(email: novo);
+    _feedback(ok, 'E-mail atualizado.', auth.error);
+  }
+
+  Future<void> _editarDataNascimento(User user) async {
+    final hoje = DateTime.now();
+    final escolhida = await showDatePicker(
+      context: context,
+      initialDate: user.dataNascimento,
+      firstDate: DateTime(1900),
+      // Mínimo de 18 anos (o backend revalida).
+      lastDate: DateTime(hoje.year - 18, hoje.month, hoje.day),
+      helpText: 'Data de nascimento',
+    );
+    if (escolhida == null || !mounted) return;
+    final auth = context.read<AuthController>();
+    final ok = await auth.atualizarPerfil(dataNascimento: escolhida);
+    _feedback(ok, 'Data de nascimento atualizada.', auth.error);
+  }
+
+  void _feedback(bool ok, String sucesso, String? erro) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? sucesso : (erro ?? 'Não foi possível salvar.'))),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthController>().currentUser;
+    final carroAtivo = context.watch<CarroController>().carroAtivo;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -22,10 +94,10 @@ class PerfilTab extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: AppSpacing.lg),
-            CircleAvatar(
+            const CircleAvatar(
               radius: 44,
               backgroundColor: AppColors.primarySoft,
-              child: const Icon(Icons.person, size: 48, color: AppColors.primary),
+              child: Icon(Icons.person, size: 48, color: AppColors.primary),
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
@@ -53,12 +125,26 @@ class PerfilTab extends StatelessWidget {
                       icon: Icons.cake_outlined,
                       label: 'Data de nascimento',
                       value: formatData(user.dataNascimento),
+                      onEdit: () => _editarDataNascimento(user),
                     ),
                     const Divider(height: 1),
                     _InfoRow(
                       icon: Icons.mail_outline,
                       label: 'E-mail',
                       value: user.email,
+                      onEdit: () => _editarEmail(user),
+                    ),
+                    const Divider(height: 1),
+                    _InfoRow(
+                      icon: Icons.directions_car_outlined,
+                      label: 'Carro',
+                      value: carroAtivo != null
+                          ? '${carroAtivo.descricao} • ${carroAtivo.placa}'
+                          : 'Nenhum carro ativo',
+                      onEdit: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CarrosPage()),
+                      ),
                     ),
                   ],
                 ),
@@ -84,17 +170,24 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final VoidCallback? onEdit;
 
   const _InfoRow({
     required this.icon,
     required this.label,
     required this.value,
+    this.onEdit,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.sm,
+      ),
       child: Row(
         children: [
           Icon(icon, color: AppColors.textMuted, size: 20),
@@ -110,6 +203,16 @@ class _InfoRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (onEdit != null)
+            IconButton(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              color: AppColors.primary,
+              tooltip: 'Editar',
+              visualDensity: VisualDensity.compact,
+            )
+          else
+            const SizedBox(width: AppSpacing.md),
         ],
       ),
     );

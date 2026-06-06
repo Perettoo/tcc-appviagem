@@ -11,6 +11,7 @@ const usuarioRoutes = require('./routes/usuario');
 const authRoutes = require('./routes/auth');
 const grupoRoutes = require('./routes/grupo/grupo');
 const caronaRoutes = require('./routes/carona/carona');
+const carroRoutes = require('./routes/carro/carro');
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use(usuarioRoutes);
 app.use(authRoutes);
 app.use(grupoRoutes);
 app.use(caronaRoutes);
+app.use(carroRoutes);
 
 // Servidor HTTP compartilhado entre Express e Socket.IO.
 const httpServer = http.createServer(app);

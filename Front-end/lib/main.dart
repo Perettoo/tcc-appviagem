@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:test_tcc/app.dart';
 import 'package:test_tcc/data/datasources/auth_remote_datasource.dart';
 import 'package:test_tcc/data/datasources/carona_remote_datasource.dart';
+import 'package:test_tcc/data/datasources/carro_remote_datasource.dart';
 import 'package:test_tcc/data/datasources/chat_remote_datasource.dart';
 import 'package:test_tcc/data/datasources/chat_socket_service.dart';
 import 'package:test_tcc/data/datasources/grupo_remote_datasource.dart';
@@ -10,12 +11,15 @@ import 'package:test_tcc/data/datasources/session_socket_service.dart';
 import 'package:test_tcc/data/datasources/token_storage.dart';
 import 'package:test_tcc/data/repositories/auth_repository_impl.dart';
 import 'package:test_tcc/data/repositories/carona_repository_impl.dart';
+import 'package:test_tcc/data/repositories/carro_repository_impl.dart';
 import 'package:test_tcc/data/repositories/chat_repository_impl.dart';
 import 'package:test_tcc/data/repositories/grupo_repository_impl.dart';
 import 'package:test_tcc/domain/repositories/auth_repository.dart';
 import 'package:test_tcc/domain/repositories/carona_repository.dart';
+import 'package:test_tcc/domain/repositories/carro_repository.dart';
 import 'package:test_tcc/domain/repositories/chat_repository.dart';
 import 'package:test_tcc/domain/repositories/grupo_repository.dart';
+import 'package:test_tcc/domain/usecases/atualizar_perfil_usecase.dart';
 import 'package:test_tcc/domain/usecases/criar_grupo_usecase.dart';
 import 'package:test_tcc/domain/usecases/listar_grupos_usecase.dart';
 import 'package:test_tcc/domain/usecases/login_usecase.dart';
@@ -23,6 +27,7 @@ import 'package:test_tcc/domain/usecases/logout_usecase.dart';
 import 'package:test_tcc/domain/usecases/register_usecase.dart';
 import 'package:test_tcc/presentation/controllers/auth_controller.dart';
 import 'package:test_tcc/presentation/controllers/carona_controller.dart';
+import 'package:test_tcc/presentation/controllers/carro_controller.dart';
 import 'package:test_tcc/presentation/controllers/grupo_controller.dart';
 
 void main() {
@@ -48,6 +53,10 @@ void main() {
           update: (_, storage, _) =>
               CaronaRemoteDatasource(tokenStorage: storage),
         ),
+        ProxyProvider<TokenStorage, CarroRemoteDatasource>(
+          update: (_, storage, _) =>
+              CarroRemoteDatasource(tokenStorage: storage),
+        ),
         ProxyProvider<TokenStorage, SessionSocketService>(
           update: (_, storage, _) => SessionSocketService(tokenStorage: storage),
         ),
@@ -65,12 +74,18 @@ void main() {
         ProxyProvider<CaronaRemoteDatasource, CaronaRepository>(
           update: (_, remote, _) => CaronaRepositoryImpl(remote),
         ),
+        ProxyProvider<CarroRemoteDatasource, CarroRepository>(
+          update: (_, remote, _) => CarroRepositoryImpl(remote),
+        ),
         // Casos de uso
         ProxyProvider<AuthRepository, LoginUseCase>(
           update: (_, repo, _) => LoginUseCase(repo),
         ),
         ProxyProvider<AuthRepository, RegisterUseCase>(
           update: (_, repo, _) => RegisterUseCase(repo),
+        ),
+        ProxyProvider<AuthRepository, AtualizarPerfilUseCase>(
+          update: (_, repo, _) => AtualizarPerfilUseCase(repo),
         ),
         ProxyProvider<TokenStorage, LogoutUseCase>(
           update: (_, storage, _) => LogoutUseCase(storage),
@@ -82,24 +97,30 @@ void main() {
           update: (_, repo, _) => ListarGruposUseCase(repo),
         ),
         // Controllers
-        ChangeNotifierProxyProvider3<LoginUseCase, RegisterUseCase,
-            LogoutUseCase, AuthController>(
+        ChangeNotifierProxyProvider4<LoginUseCase, RegisterUseCase,
+            LogoutUseCase, AtualizarPerfilUseCase, AuthController>(
           create: (ctx) => AuthController(
             loginUseCase: ctx.read<LoginUseCase>(),
             registerUseCase: ctx.read<RegisterUseCase>(),
             logoutUseCase: ctx.read<LogoutUseCase>(),
+            atualizarPerfilUseCase: ctx.read<AtualizarPerfilUseCase>(),
           ),
-          update: (_, login, register, logout, previous) =>
+          update: (_, login, register, logout, atualizarPerfil, previous) =>
               previous ??
               AuthController(
                 loginUseCase: login,
                 registerUseCase: register,
                 logoutUseCase: logout,
+                atualizarPerfilUseCase: atualizarPerfil,
               ),
         ),
         ChangeNotifierProxyProvider<CaronaRepository, CaronaController>(
           create: (ctx) => CaronaController(ctx.read<CaronaRepository>()),
           update: (_, repo, previous) => previous ?? CaronaController(repo),
+        ),
+        ChangeNotifierProxyProvider<CarroRepository, CarroController>(
+          create: (ctx) => CarroController(ctx.read<CarroRepository>()),
+          update: (_, repo, previous) => previous ?? CarroController(repo),
         ),
         ChangeNotifierProxyProvider3<ListarGruposUseCase, CriarGrupoUseCase,
             SessionSocketService, GrupoController>(

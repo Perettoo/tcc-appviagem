@@ -144,7 +144,16 @@ async function aceitar(req, res) {
       throw AppError.conflict('Esta carona ja foi aceita ou nao esta disponivel.');
     }
 
+    // O carro ativo do motorista e atrelado a carona. Sem carro, nao aceita.
+    const carro = await db.Carro.findOne({
+      where: { idUsuario: req.user.idUsuario, ativo: true },
+    });
+    if (!carro) {
+      throw AppError.validation(security.CARRO_OBRIGATORIO_MSG);
+    }
+
     carona.idMotorista = req.user.idUsuario;
+    carona.idCarro = carro.idCarro;
     carona.status = security.CARONA_STATUS.ACEITA;
     await carona.save();
 
@@ -284,6 +293,11 @@ async function detalhe(req, res) {
         { model: db.Grupo, as: 'grupo', attributes: ['idGrupo', 'nome'] },
         { model: db.Usuario, as: 'motorista', attributes: ['idUsuario', 'nome'] },
         {
+          model: db.Carro,
+          as: 'carro',
+          attributes: ['idCarro', 'marca', 'modelo', 'anoFabricacao', 'cor', 'placa'],
+        },
+        {
           model: db.CaronaUsuario,
           as: 'passageiros',
           include: [
@@ -306,6 +320,16 @@ async function detalhe(req, res) {
       data: carona.data,
       motorista: carona.motorista
         ? { idUsuario: carona.motorista.idUsuario, nome: carona.motorista.nome }
+        : null,
+      carro: carona.carro
+        ? {
+            idCarro: carona.carro.idCarro,
+            marca: carona.carro.marca,
+            modelo: carona.carro.modelo,
+            anoFabricacao: carona.carro.anoFabricacao,
+            cor: carona.carro.cor,
+            placa: carona.carro.placa,
+          }
         : null,
       passageiros: (carona.passageiros || []).map((p) => ({
         idUsuario: p.passageiro ? p.passageiro.idUsuario : p.idPassageiro,

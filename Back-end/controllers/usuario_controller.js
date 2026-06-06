@@ -122,6 +122,81 @@ async function registrar(req, res) {
   }
 }
 
+// Calcula a idade em anos a partir de uma data de nascimento.
+function idadeEm(dataNasc) {
+  const hoje = new Date();
+  return hoje.getFullYear() - dataNasc.getFullYear()
+    - (hoje < new Date(hoje.getFullYear(), dataNasc.getMonth(), dataNasc.getDate()) ? 1 : 0);
+}
+
+// Atualiza o proprio perfil: hoje so e-mail e data de nascimento (editaveis
+// pela tela de perfil). Aceita atualizacao parcial (um campo por vez).
+async function atualizarMe(req, res) {
+  try {
+    const idUsuario = req.user.idUsuario;
+    const usuario = await db.Usuario.findByPk(idUsuario);
+    if (!usuario) {
+      throw AppError.notFound('Usuario nao encontrado.');
+    }
+
+    const erros = {};
+    const mudancas = {};
+
+    if (req.body.email !== undefined) {
+      const email = (req.body.email || '').trim().toLowerCase();
+      if (!security.EMAIL_REGEX.test(email)) {
+        erros.email = 'E-mail invalido.';
+      } else if (email !== usuario.email) {
+        const existente = await db.Usuario.findOne({ where: { email } });
+        if (existente) {
+          throw AppError.conflict('E-mail ja cadastrado.', { campo: 'email' });
+        }
+        mudancas.email = email;
+      }
+    }
+
+    if (req.body.dataNascimento !== undefined) {
+      const data = req.body.dataNascimento ? new Date(req.body.dataNascimento) : null;
+      if (!data || Number.isNaN(data.getTime())) {
+        erros.dataNascimento = 'Data de nascimento invalida.';
+      } else if (idadeEm(data) < security.IDADE_MINIMA) {
+        erros.dataNascimento = `Usuario deve ter no minimo ${security.IDADE_MINIMA} anos.`;
+      } else {
+        mudancas.dataNascimento = req.body.dataNascimento;
+      }
+    }
+
+    if (Object.keys(erros).length > 0) {
+      throw AppError.validation('Dados invalidos.', erros);
+    }
+
+    if (Object.keys(mudancas).length > 0) {
+      await usuario.update(mudancas);
+    }
+
+    return res.status(200).json({
+      idUsuario: usuario.idUsuario,
+      nome: usuario.nome,
+      email: usuario.email,
+      tipo: usuario.tipo,
+      dataNascimento: usuario.dataNascimento,
+    });
+  } catch (err) {
+    if (err instanceof AppError) {
+      return res.status(err.httpStatus).json({
+        error: err.type,
+        message: err.message,
+        details: err.details,
+      });
+    }
+    console.error('[usuario_controller.atualizarMe]', err);
+    return res.status(500).json({
+      error: 'INTERNAL',
+      message: 'Erro interno ao atualizar perfil.',
+    });
+  }
+}
+
 // Busca usuarios por nome ou email (para adicionar a um grupo).
 // Exige um termo minimo pra nao despejar a base inteira.
 async function buscar(req, res) {
@@ -163,4 +238,4 @@ async function buscar(req, res) {
   }
 }
 
-module.exports = { registrar, buscar };
+module.exports = { registrar, buscar, atualizarMe };

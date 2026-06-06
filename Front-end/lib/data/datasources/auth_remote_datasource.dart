@@ -90,6 +90,30 @@ class AuthRemoteDatasource {
     }
   }
 
+  /// Atualiza o próprio perfil (e-mail e/ou data de nascimento). Envia só os
+  /// campos informados. Retorna o usuário com os dados atualizados.
+  Future<User> atualizarPerfil({String? email, DateTime? dataNascimento}) async {
+    try {
+      final data = <String, dynamic>{};
+      if (email != null) data['email'] = email;
+      if (dataNascimento != null) {
+        data['dataNascimento'] =
+            dataNascimento.toIso8601String().substring(0, 10);
+      }
+      final response = await _dio.patch('/usuarios/me', data: data);
+      final u = response.data as Map<String, dynamic>;
+      return User(
+        idUsuario: u['idUsuario'] as int,
+        name: u['nome'] as String,
+        email: u['email'] as String,
+        dataNascimento: DateTime.parse(u['dataNascimento'] as String),
+        tipo: TipoUsuario.values.firstWhere((t) => t.name == u['tipo']),
+      );
+    } on DioException catch (e) {
+      throw _mapRegisterError(e);
+    }
+  }
+
   AuthFailure _mapLoginError(DioException e) {
     if (e.response?.statusCode == 401) {
       return const InvalidCredentialsFailure();

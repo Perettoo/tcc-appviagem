@@ -93,6 +93,7 @@ class CaronaRemoteDatasource {
 
   CaronaDetalhe _detalheFromJson(Map<String, dynamic> j) {
     final motorista = j['motorista'];
+    final carro = j['carro'];
     final passageiros = (j['passageiros'] as List<dynamic>? ?? const [])
         .map((e) => e as Map<String, dynamic>)
         .map((p) => PassageiroCarona(
@@ -108,6 +109,16 @@ class CaronaRemoteDatasource {
       data: DateTime.parse(j['data'] as String).toLocal(),
       idMotorista: motorista is Map ? motorista['idUsuario'] as int? : null,
       motoristaNome: motorista is Map ? motorista['nome'] as String? : null,
+      carro: carro is Map
+          ? CarroCarona(
+              idCarro: carro['idCarro'] as int,
+              marca: carro['marca'] as String,
+              modelo: carro['modelo'] as String,
+              anoFabricacao: carro['anoFabricacao'] as int,
+              cor: carro['cor'] as String,
+              placa: carro['placa'] as String,
+            )
+          : null,
       passageiros: passageiros,
     );
   }

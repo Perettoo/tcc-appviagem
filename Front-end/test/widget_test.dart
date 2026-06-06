@@ -5,6 +5,7 @@ import 'package:test_tcc/data/datasources/auth_remote_datasource.dart';
 import 'package:test_tcc/data/datasources/token_storage.dart';
 import 'package:test_tcc/data/repositories/auth_repository_impl.dart';
 import 'package:test_tcc/domain/repositories/auth_repository.dart';
+import 'package:test_tcc/domain/usecases/atualizar_perfil_usecase.dart';
 import 'package:test_tcc/domain/usecases/login_usecase.dart';
 import 'package:test_tcc/domain/usecases/logout_usecase.dart';
 import 'package:test_tcc/domain/usecases/register_usecase.dart';
@@ -32,19 +33,24 @@ void main() {
           ProxyProvider<TokenStorage, LogoutUseCase>(
             update: (_, storage, _) => LogoutUseCase(storage),
           ),
-          ChangeNotifierProxyProvider3<LoginUseCase, RegisterUseCase,
-              LogoutUseCase, AuthController>(
+          ProxyProvider<AuthRepository, AtualizarPerfilUseCase>(
+            update: (_, repo, _) => AtualizarPerfilUseCase(repo),
+          ),
+          ChangeNotifierProxyProvider4<LoginUseCase, RegisterUseCase,
+              LogoutUseCase, AtualizarPerfilUseCase, AuthController>(
             create: (ctx) => AuthController(
               loginUseCase: ctx.read<LoginUseCase>(),
               registerUseCase: ctx.read<RegisterUseCase>(),
               logoutUseCase: ctx.read<LogoutUseCase>(),
+              atualizarPerfilUseCase: ctx.read<AtualizarPerfilUseCase>(),
             ),
-            update: (_, login, register, logout, previous) =>
+            update: (_, login, register, logout, atualizarPerfil, previous) =>
                 previous ??
                 AuthController(
                   loginUseCase: login,
                   registerUseCase: register,
                   logoutUseCase: logout,
+                  atualizarPerfilUseCase: atualizarPerfil,
                 ),
           ),
         ],
