@@ -33,7 +33,13 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(7),
         allowNull: false,
       },
-      // Carro selecionado (atrelado a carona ao aceitar). No maximo um por
+      // Capacidade total (motorista incluso). Limite de passageiros = cap - 1.
+      capacidade: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 5,
+      },
+      // Carro selecionado (atrelado a carona ao anunciar). No maximo um por
       // usuario; garantido no controller (selecionar zera os demais).
       ativo: {
         type: DataTypes.BOOLEAN,

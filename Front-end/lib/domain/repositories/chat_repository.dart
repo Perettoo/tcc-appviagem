@@ -16,16 +16,14 @@ abstract class ChatRepository {
 
   Future<Mensagem> enviar(int idGrupo, String conteudo);
 
-  /// Solicita uma carona no grupo. Retorna a mensagem-card criada.
-  Future<Mensagem> solicitarCarona(int idGrupo);
-
-  /// Aceita uma carona pendente (motorista). Retorna a carona atualizada.
-  Future<CaronaResumo> aceitarCarona(int idCarona);
+  /// Motorista anuncia uma carona no grupo (destino opcional). Retorna a
+  /// mensagem-card criada.
+  Future<Mensagem> anunciarCarona(int idGrupo, {String? destino});
 
   /// Stream de mensagens novas (tempo-real) da sala do grupo.
   Stream<Mensagem> conectar(int idGrupo);
 
-  /// Stream de caronas atualizadas (ex: aceitas) da sala conectada.
+  /// Stream de caronas atualizadas (vagas/pedidos/status) da sala conectada.
   Stream<CaronaResumo> get caronaUpdates;
 
   void desconectar();

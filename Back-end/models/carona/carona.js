@@ -15,20 +15,26 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      // Nulo no pedido; preenchido quando um motorista aceitar (fluxo futuro).
+      // Quem anunciou a carona (o motorista). Nullable: SET NULL se o usuario
+      // for removido, preservando o historico.
       idMotorista: {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
-      // Nulo no pedido; preenchido com o carro ativo do motorista ao aceitar.
+      // Carro ativo do motorista no momento do anuncio.
       idCarro: {
         type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      // Destino/observacao do anuncio (ex.: "Saindo para a faculdade").
+      destino: {
+        type: DataTypes.STRING(120),
         allowNull: true,
       },
       status: {
         type: DataTypes.ENUM(...Object.values(security.CARONA_STATUS)),
         allowNull: false,
-        defaultValue: security.CARONA_STATUS.PENDENTE,
+        defaultValue: security.CARONA_STATUS.ABERTA,
       },
       data: {
         type: DataTypes.DATE,

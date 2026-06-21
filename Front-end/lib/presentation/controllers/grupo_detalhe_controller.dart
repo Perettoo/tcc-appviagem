@@ -33,9 +33,6 @@ class GrupoDetalheController extends ChangeNotifier {
   StreamSubscription<Mensagem>? _sub;
   StreamSubscription<CaronaResumo>? _caronaSub;
 
-  // Caronas com aceite em andamento (spinner por card).
-  final Set<int> _aceitando = {};
-
   List<Mensagem> get mensagens => _mensagens;
   List<MembroGrupo> get membros => _membros;
   bool get loading => _loading;
@@ -43,7 +40,6 @@ class GrupoDetalheController extends ChangeNotifier {
   String? get error => _error;
 
   bool ehMinha(Mensagem m) => m.idAutor == currentUserId;
-  bool estaAceitando(int idCarona) => _aceitando.contains(idCarona);
 
   Future<void> iniciar() async {
     // Seguro pra ser chamado de novo (retry após erro).
@@ -87,8 +83,8 @@ class GrupoDetalheController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Atualiza o card da carona (ex: virou "aceita"). Chega pela resposta do
-  // PATCH e/ou pelo socket; aplicar duas vezes é idempotente (mesma carona).
+  // Atualiza o card da carona (vagas/pedidos/status). Chega pelo socket; aplicar
+  // duas vezes é idempotente (mesma carona).
   void _aoAtualizarCarona(CaronaResumo c) {
     var mudou = false;
     _mensagens = _mensagens.map((m) {
@@ -99,26 +95,6 @@ class GrupoDetalheController extends ChangeNotifier {
       return m;
     }).toList();
     if (mudou) notifyListeners();
-  }
-
-  /// Aceita uma carona pendente (motorista). O card é atualizado pelo retorno
-  /// e pelo socket. Propaga a mensagem de erro via [error] em caso de falha.
-  Future<bool> aceitarCarona(int idCarona) async {
-    if (_aceitando.contains(idCarona)) return false;
-    _aceitando.add(idCarona);
-    notifyListeners();
-    try {
-      final carona = await _repo.aceitarCarona(idCarona);
-      _aoAtualizarCarona(carona);
-      _error = null;
-      return true;
-    } on GrupoFailure catch (f) {
-      _error = f.message;
-      return false;
-    } finally {
-      _aceitando.remove(idCarona);
-      notifyListeners();
-    }
   }
 
   Future<bool> enviar(String texto) async {
@@ -140,14 +116,15 @@ class GrupoDetalheController extends ChangeNotifier {
     }
   }
 
-  /// Solicita uma carona no grupo. O card chega de volta pela resposta do POST
-  /// (e também pelo socket; o dedupe evita duplicar). Reusa o flag [enviando].
-  Future<bool> solicitarCarona() async {
+  /// Motorista anuncia uma carona no grupo (destino opcional). O card chega pela
+  /// resposta do POST (e também pelo socket; o dedupe evita duplicar). Reusa o
+  /// flag [enviando].
+  Future<bool> anunciarCarona({String? destino}) async {
     if (_enviando) return false;
     _enviando = true;
     notifyListeners();
     try {
-      final msg = await _repo.solicitarCarona(idGrupo);
+      final msg = await _repo.anunciarCarona(idGrupo, destino: destino);
       _aoReceber(msg); // dedupe cuida do eco do socket
       _error = null;
       return true;

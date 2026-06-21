@@ -28,6 +28,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
   late final TextEditingController _ano;
   late final TextEditingController _cor;
   late final TextEditingController _placa;
+  late final TextEditingController _capacidade;
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
     _ano = TextEditingController(text: c?.anoFabricacao.toString() ?? '');
     _cor = TextEditingController(text: c?.cor ?? '');
     _placa = TextEditingController(text: c?.placa ?? '');
+    _capacidade = TextEditingController(text: c?.capacidade.toString() ?? '');
   }
 
   @override
@@ -47,6 +49,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
     _ano.dispose();
     _cor.dispose();
     _placa.dispose();
+    _capacidade.dispose();
     super.dispose();
   }
 
@@ -54,6 +57,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final controller = context.read<CarroController>();
     final ano = int.parse(_ano.text.trim());
+    final capacidade = int.parse(_capacidade.text.trim());
 
     final ok = widget.ehEdicao
         ? await controller.atualizar(
@@ -63,6 +67,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
             anoFabricacao: ano,
             cor: _cor.text.trim(),
             placa: _placa.text.trim(),
+            capacidade: capacidade,
           )
         : await controller.criar(
             marca: _marca.text.trim(),
@@ -70,6 +75,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
             anoFabricacao: ano,
             cor: _cor.text.trim(),
             placa: _placa.text.trim(),
+            capacidade: capacidade,
           );
 
     if (!mounted) return;
@@ -163,6 +169,27 @@ class _CarroFormPageState extends State<CarroFormPage> {
                   final placa = v!.trim().toUpperCase();
                   final ok = AppConstants.carroPlacaRegex.hasMatch(placa);
                   return ok ? null : 'Use o formato ABC1234 ou ABC1D23.';
+                },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _campo(
+                controller: _capacidade,
+                label: 'Capacidade (lugares, motorista incluso)',
+                hint: 'Ex: 5',
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(2),
+                ],
+                validator: (v) {
+                  final base = _obrigatorio(v);
+                  if (base != null) return base;
+                  final cap = int.tryParse(v!.trim());
+                  if (cap == null || cap < AppConstants.carroCapacidadeMin) {
+                    return 'Capacidade deve ser de ao menos '
+                        '${AppConstants.carroCapacidadeMin} (motorista incluso).';
+                  }
+                  return null;
                 },
               ),
               const SizedBox(height: AppSpacing.xxl),

@@ -7,8 +7,12 @@ const { ensureMembro } = require('../../utils/membership');
 const {
   montarPayload,
   includeMensagem,
+  includeCaronaResumo,
   caronaPayload,
 } = require('../../utils/mensagem_payload');
+
+const STATUS = security.CARONA_STATUS;
+const PSTATUS = security.CARONA_PASSAGEIRO_STATUS;
 
 function parseIdGrupo(req) {
   const idGrupo = Number(req.params.idGrupo);
@@ -26,6 +30,14 @@ function parseIdCarona(req) {
   return idCarona;
 }
 
+function parseIdPassageiro(req) {
+  const id = Number(req.params.idPassageiro);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw AppError.validation('Passageiro invalido.');
+  }
+  return id;
+}
+
 function tratarErro(res, err, tag) {
   if (err instanceof AppError) {
     return res.status(err.httpStatus).json({
@@ -41,26 +53,93 @@ function tratarErro(res, err, tag) {
   });
 }
 
-// Recarrega a carona com o motorista, emite carona:atualizada pra sala do grupo
-// e responde 200 com o payload. Chamar como ultimo passo apos salvar o status.
-async function emitirEResponder(req, res, idCarona, idGrupo) {
-  const completa = await db.Carona.findByPk(idCarona, {
-    include: [
-      { model: db.Usuario, as: 'motorista', attributes: ['idUsuario', 'nome'] },
-    ],
-  });
-  const payload = caronaPayload(completa);
-  const io = req.app.get('io');
-  if (io) {
-    io.to(`grupo:${idGrupo}`).emit('carona:atualizada', payload);
+// Carona ativa por id, ou 404. Sem includes (uso em mutacoes simples).
+async function buscarCarona(idCarona) {
+  const carona = await db.Carona.findOne({ where: { idCarona, ativo: true } });
+  if (!carona) {
+    throw AppError.notFound('Carona nao encontrada.');
   }
-  return res.status(200).json(payload);
+  return carona;
 }
 
-// Passageiro pede uma carona no grupo. Cria a carona (pendente, sem motorista),
-// registra o solicitante como passageiro e posta um pedido no chat. Tudo numa
-// transacao: ou as tres coisas existem, ou nenhuma.
-async function solicitar(req, res) {
+const includeDetalhe = () => [
+  { model: db.Grupo, as: 'grupo', attributes: ['idGrupo', 'nome'] },
+  { model: db.Usuario, as: 'motorista', attributes: ['idUsuario', 'nome'] },
+  {
+    model: db.Carro,
+    as: 'carro',
+    attributes: ['idCarro', 'marca', 'modelo', 'anoFabricacao', 'cor', 'placa', 'capacidade'],
+  },
+  {
+    model: db.CaronaUsuario,
+    as: 'passageiros',
+    include: [
+      { model: db.Usuario, as: 'passageiro', attributes: ['idUsuario', 'nome'] },
+    ],
+  },
+];
+
+// Monta o JSON de detalhe (motorista, carro, vagas e passageiros com status).
+function montarDetalhe(carona) {
+  const lugares = carona.carro
+    ? Math.max(carona.carro.capacidade - 1, 0)
+    : null;
+  const passageiros = (carona.passageiros || []).map((p) => ({
+    idUsuario: p.passageiro ? p.passageiro.idUsuario : p.idPassageiro,
+    nome: p.passageiro ? p.passageiro.nome : null,
+    status: p.status,
+  }));
+  const ocupadas = passageiros.filter((p) => p.status === PSTATUS.APROVADO).length;
+
+  return {
+    idCarona: carona.idCarona,
+    idGrupo: carona.idGrupo,
+    grupoNome: carona.grupo ? carona.grupo.nome : null,
+    status: carona.status,
+    data: carona.data,
+    destino: carona.destino,
+    lugares,
+    ocupadas,
+    motorista: carona.motorista
+      ? { idUsuario: carona.motorista.idUsuario, nome: carona.motorista.nome }
+      : null,
+    carro: carona.carro
+      ? {
+          idCarro: carona.carro.idCarro,
+          marca: carona.carro.marca,
+          modelo: carona.carro.modelo,
+          anoFabricacao: carona.carro.anoFabricacao,
+          cor: carona.carro.cor,
+          placa: carona.carro.placa,
+          capacidade: carona.carro.capacidade,
+        }
+      : null,
+    passageiros,
+  };
+}
+
+// Recarrega a carona completa e responde 200 com o detalhe.
+async function responderDetalhe(res, idCarona) {
+  const completa = await db.Carona.findByPk(idCarona, {
+    include: includeDetalhe(),
+  });
+  return res.status(200).json(montarDetalhe(completa));
+}
+
+// Recarrega o resumo da carona e emite carona:atualizada pra sala do grupo,
+// para os cards do chat refletirem vagas/pedidos/status ao vivo.
+async function emitirAtualizacao(req, idCarona, idGrupo) {
+  const io = req.app.get('io');
+  if (!io) return;
+  const resumo = await db.Carona.findByPk(idCarona, {
+    include: includeCaronaResumo(db),
+  });
+  io.to(`grupo:${idGrupo}`).emit('carona:atualizada', caronaPayload(resumo));
+}
+
+// Motorista anuncia uma carona no grupo. Cria a carona ja com motorista e carro
+// ativo (status 'aberta') e posta um card no chat. Tudo numa transacao.
+async function anunciar(req, res) {
   const t = await db.sequelize.transaction();
   let payload;
   let idGrupo;
@@ -68,23 +147,52 @@ async function solicitar(req, res) {
     idGrupo = parseIdGrupo(req);
     await ensureMembro(req.user.idUsuario, idGrupo);
 
+    if (!security.CARONA_TIPOS_MOTORISTA.includes(req.user.tipo)) {
+      throw AppError.forbidden('Apenas motoristas podem anunciar caronas.');
+    }
+
+    // Destino opcional, mas se vier precisa ter tamanho minimo.
+    const destino = (req.body.destino || '').trim();
+    if (destino && destino.length < security.CARONA_DESTINO_MIN) {
+      throw AppError.validation('Destino invalido.', {
+        destino: `Destino deve ter ao menos ${security.CARONA_DESTINO_MIN} caracteres.`,
+      });
+    }
+    if (destino.length > security.CARONA_DESTINO_MAX) {
+      throw AppError.validation('Destino invalido.', {
+        destino: `Destino deve ter no maximo ${security.CARONA_DESTINO_MAX} caracteres.`,
+      });
+    }
+
+    // Carro ativo do motorista: define a capacidade (vagas) e e atrelado.
+    const carro = await db.Carro.findOne({
+      where: { idUsuario: req.user.idUsuario, ativo: true },
+    });
+    if (!carro) {
+      throw AppError.validation(security.CARRO_OBRIGATORIO_MSG);
+    }
+
     const carona = await db.Carona.create(
-      { idGrupo, status: security.CARONA_STATUS.PENDENTE },
+      {
+        idGrupo,
+        idMotorista: req.user.idUsuario,
+        idCarro: carro.idCarro,
+        destino: destino || null,
+        status: STATUS.ABERTA,
+      },
       { transaction: t },
     );
 
-    await db.CaronaUsuario.create(
-      { idCarona: carona.idCarona, idPassageiro: req.user.idUsuario },
-      { transaction: t },
-    );
-
+    const conteudo = destino
+      ? `Vai sair: ${destino}`
+      : security.CARONA_MENSAGEM_PADRAO;
     const nova = await db.Mensagem.create(
       {
         idGrupo,
         idUsuario: req.user.idUsuario,
         tipo: security.MENSAGEM_TIPO.CARONA,
         idCarona: carona.idCarona,
-        conteudo: security.CARONA_MENSAGEM_PADRAO,
+        conteudo,
       },
       { transaction: t },
     );
@@ -98,10 +206,10 @@ async function solicitar(req, res) {
     await t.commit();
   } catch (err) {
     await t.rollback().catch(() => {});
-    return tratarErro(res, err, '[carona_controller.solicitar]');
+    return tratarErro(res, err, '[carona_controller.anunciar]');
   }
 
-  // Broadcast pra sala do grupo (inclui o solicitante) so apos o commit.
+  // Broadcast do card so apos o commit.
   const io = req.app.get('io');
   if (io) {
     io.to(`grupo:${idGrupo}`).emit('mensagem:nova', payload);
@@ -110,133 +218,183 @@ async function solicitar(req, res) {
   return res.status(201).json(payload);
 }
 
-// Um motorista do grupo aceita uma carona pendente. Regras: precisa ser membro
-// do grupo, ter tipo motorista/ambos e NAO ser o solicitante. So caronas
-// pendentes podem ser aceitas.
-async function aceitar(req, res) {
+// Passageiro pede para entrar numa carona aberta. Cria (ou revive, se antes
+// recusado) o vinculo como 'pendente'. Nao ocupa vaga ate o motorista aprovar.
+async function pedir(req, res) {
   try {
     const idCarona = parseIdCarona(req);
+    const carona = await buscarCarona(idCarona);
+    await ensureMembro(req.user.idUsuario, carona.idGrupo);
 
-    const carona = await db.Carona.findOne({ where: { idCarona, ativo: true } });
-    if (!carona) {
-      throw AppError.notFound('Carona nao encontrada.');
+    if (carona.status !== STATUS.ABERTA) {
+      throw AppError.conflict('Esta carona nao esta aberta para pedidos.');
     }
-    const idGrupo = carona.idGrupo;
-
-    // Membro do grupo (mesma regra do chat).
-    await ensureMembro(req.user.idUsuario, idGrupo);
-
-    // So motorista/ambos podem aceitar.
-    if (!security.CARONA_TIPOS_MOTORISTA.includes(req.user.tipo)) {
-      throw AppError.forbidden('Apenas motoristas podem aceitar caronas.');
+    if (carona.idMotorista === req.user.idUsuario) {
+      throw AppError.forbidden('Voce e o motorista desta carona.');
     }
 
-    // Nao pode aceitar a propria carona (quem pediu e passageiro dela).
-    const ehSolicitante = await db.CaronaUsuario.findOne({
+    const existente = await db.CaronaUsuario.findOne({
       where: { idCarona, idPassageiro: req.user.idUsuario },
     });
-    if (ehSolicitante) {
-      throw AppError.forbidden('Voce nao pode aceitar a propria carona.');
+    if (existente) {
+      if (existente.status !== PSTATUS.RECUSADO) {
+        throw AppError.conflict('Voce ja pediu esta carona.');
+      }
+      existente.status = PSTATUS.PENDENTE;
+      await existente.save();
+    } else {
+      await db.CaronaUsuario.create({
+        idCarona,
+        idPassageiro: req.user.idUsuario,
+        status: PSTATUS.PENDENTE,
+      });
     }
 
-    // So pendente pode ser aceita (evita corrida entre dois motoristas).
-    if (carona.status !== security.CARONA_STATUS.PENDENTE) {
-      throw AppError.conflict('Esta carona ja foi aceita ou nao esta disponivel.');
-    }
-
-    // O carro ativo do motorista e atrelado a carona. Sem carro, nao aceita.
-    const carro = await db.Carro.findOne({
-      where: { idUsuario: req.user.idUsuario, ativo: true },
-    });
-    if (!carro) {
-      throw AppError.validation(security.CARRO_OBRIGATORIO_MSG);
-    }
-
-    carona.idMotorista = req.user.idUsuario;
-    carona.idCarro = carro.idCarro;
-    carona.status = security.CARONA_STATUS.ACEITA;
-    await carona.save();
-
-    return await emitirEResponder(req, res, idCarona, idGrupo);
+    await emitirAtualizacao(req, idCarona, carona.idGrupo);
+    return await responderDetalhe(res, idCarona);
   } catch (err) {
-    return tratarErro(res, err, '[carona_controller.aceitar]');
+    return tratarErro(res, err, '[carona_controller.pedir]');
   }
 }
 
-// So o motorista da carona conclui, e somente quando ela esta 'aceita'.
-async function concluir(req, res) {
+// Passageiro cancela o proprio pedido (remove o vinculo). Pode reenviar depois.
+async function cancelarPedido(req, res) {
   try {
     const idCarona = parseIdCarona(req);
+    const carona = await buscarCarona(idCarona);
+    await ensureMembro(req.user.idUsuario, carona.idGrupo);
 
-    const carona = await db.Carona.findOne({ where: { idCarona, ativo: true } });
+    const vinculo = await db.CaronaUsuario.findOne({
+      where: { idCarona, idPassageiro: req.user.idUsuario },
+    });
+    if (!vinculo) {
+      throw AppError.notFound('Voce nao tem um pedido nesta carona.');
+    }
+    await vinculo.destroy();
+
+    await emitirAtualizacao(req, idCarona, carona.idGrupo);
+    return await responderDetalhe(res, idCarona);
+  } catch (err) {
+    return tratarErro(res, err, '[carona_controller.cancelarPedido]');
+  }
+}
+
+// Motorista aprova ou recusa o pedido de um passageiro. Aprovar respeita o
+// limite de vagas (capacidade do carro - 1). Body: { acao: 'aprovar'|'recusar' }.
+async function decidir(req, res) {
+  try {
+    const idCarona = parseIdCarona(req);
+    const idPassageiro = parseIdPassageiro(req);
+    const acao = req.body.acao;
+    if (acao !== 'aprovar' && acao !== 'recusar') {
+      throw AppError.validation("Acao invalida. Use 'aprovar' ou 'recusar'.");
+    }
+
+    const carona = await db.Carona.findOne({
+      where: { idCarona, ativo: true },
+      include: [
+        { model: db.Carro, as: 'carro', attributes: ['idCarro', 'capacidade'] },
+        { model: db.CaronaUsuario, as: 'passageiros', attributes: ['idPivot', 'idPassageiro', 'status'] },
+      ],
+    });
     if (!carona) {
       throw AppError.notFound('Carona nao encontrada.');
     }
-    const idGrupo = carona.idGrupo;
+    await ensureMembro(req.user.idUsuario, carona.idGrupo);
 
-    await ensureMembro(req.user.idUsuario, idGrupo);
-
-    // Estado antes do papel: numa carona pendente nao ha motorista, e a razao
-    // correta e "ainda nao foi aceita" (409), nao "voce nao e o motorista".
-    if (carona.status !== security.CARONA_STATUS.ACEITA) {
-      throw AppError.conflict('So caronas aceitas podem ser concluidas.');
+    if (carona.idMotorista !== req.user.idUsuario) {
+      throw AppError.forbidden('Apenas o motorista decide os pedidos.');
     }
+    if (carona.status !== STATUS.ABERTA) {
+      throw AppError.conflict('Esta carona nao esta mais aberta.');
+    }
+
+    const vinculo = (carona.passageiros || []).find(
+      (p) => p.idPassageiro === idPassageiro,
+    );
+    if (!vinculo) {
+      throw AppError.notFound('Pedido nao encontrado.');
+    }
+
+    if (acao === 'aprovar') {
+      if (vinculo.status !== PSTATUS.APROVADO) {
+        const lugares = carona.carro
+          ? Math.max(carona.carro.capacidade - 1, 0)
+          : 0;
+        const aprovados = (carona.passageiros || []).filter(
+          (p) => p.status === PSTATUS.APROVADO,
+        ).length;
+        if (aprovados >= lugares) {
+          throw AppError.conflict(security.CARONA_LOTADA_MSG);
+        }
+      }
+      await db.CaronaUsuario.update(
+        { status: PSTATUS.APROVADO },
+        { where: { idPivot: vinculo.idPivot } },
+      );
+    } else {
+      await db.CaronaUsuario.update(
+        { status: PSTATUS.RECUSADO },
+        { where: { idPivot: vinculo.idPivot } },
+      );
+    }
+
+    await emitirAtualizacao(req, idCarona, carona.idGrupo);
+    return await responderDetalhe(res, idCarona);
+  } catch (err) {
+    return tratarErro(res, err, '[carona_controller.decidir]');
+  }
+}
+
+// So o motorista conclui, e somente enquanto a carona esta 'aberta'.
+async function concluir(req, res) {
+  try {
+    const idCarona = parseIdCarona(req);
+    const carona = await buscarCarona(idCarona);
+    await ensureMembro(req.user.idUsuario, carona.idGrupo);
 
     if (carona.idMotorista !== req.user.idUsuario) {
       throw AppError.forbidden('Apenas o motorista pode concluir a carona.');
     }
+    if (carona.status !== STATUS.ABERTA) {
+      throw AppError.conflict('So caronas abertas podem ser concluidas.');
+    }
 
-    carona.status = security.CARONA_STATUS.CONCLUIDA;
+    carona.status = STATUS.CONCLUIDA;
     await carona.save();
 
-    return await emitirEResponder(req, res, idCarona, idGrupo);
+    await emitirAtualizacao(req, idCarona, carona.idGrupo);
+    return await responderDetalhe(res, idCarona);
   } catch (err) {
     return tratarErro(res, err, '[carona_controller.concluir]');
   }
 }
 
-// Solicitante (passageiro) ou motorista podem cancelar, enquanto pendente ou
-// aceita. Depois de concluida/cancelada nao da mais.
+// So o motorista cancela a carona, enquanto ela esta 'aberta'.
 async function cancelar(req, res) {
   try {
     const idCarona = parseIdCarona(req);
+    const carona = await buscarCarona(idCarona);
+    await ensureMembro(req.user.idUsuario, carona.idGrupo);
 
-    const carona = await db.Carona.findOne({ where: { idCarona, ativo: true } });
-    if (!carona) {
-      throw AppError.notFound('Carona nao encontrada.');
+    if (carona.idMotorista !== req.user.idUsuario) {
+      throw AppError.forbidden('Apenas o motorista pode cancelar a carona.');
     }
-    const idGrupo = carona.idGrupo;
-
-    await ensureMembro(req.user.idUsuario, idGrupo);
-
-    const ehMotorista = carona.idMotorista === req.user.idUsuario;
-    const ehSolicitante = await db.CaronaUsuario.findOne({
-      where: { idCarona, idPassageiro: req.user.idUsuario },
-    });
-    if (!ehMotorista && !ehSolicitante) {
-      throw AppError.forbidden(
-        'Apenas o solicitante ou o motorista podem cancelar a carona.',
-      );
-    }
-
-    const cancelavel = [
-      security.CARONA_STATUS.PENDENTE,
-      security.CARONA_STATUS.ACEITA,
-    ].includes(carona.status);
-    if (!cancelavel) {
+    if (carona.status !== STATUS.ABERTA) {
       throw AppError.conflict('Esta carona nao pode mais ser cancelada.');
     }
 
-    carona.status = security.CARONA_STATUS.CANCELADA;
+    carona.status = STATUS.CANCELADA;
     await carona.save();
 
-    return await emitirEResponder(req, res, idCarona, idGrupo);
+    await emitirAtualizacao(req, idCarona, carona.idGrupo);
+    return await responderDetalhe(res, idCarona);
   } catch (err) {
     return tratarErro(res, err, '[carona_controller.cancelar]');
   }
 }
 
-// Lista as caronas em que o usuario participa: como motorista (aceitou) OU
+// Lista as caronas em que o usuario participa: como motorista (anunciou) OU
 // como passageiro (pediu/entrou). Resumo por carona, mais recentes primeiro.
 async function listar(req, res) {
   try {
@@ -245,8 +403,11 @@ async function listar(req, res) {
 
     const vinculos = await db.CaronaUsuario.findAll({
       where: { idPassageiro: meuId },
-      attributes: ['idCarona'],
+      attributes: ['idCarona', 'status'],
     });
+    const statusPorCarona = new Map(
+      vinculos.map((v) => [v.idCarona, v.status]),
+    );
     const idsComoPassageiro = vinculos.map((v) => v.idCarona);
 
     const ondeParticipa = [{ idMotorista: meuId }];
@@ -259,21 +420,33 @@ async function listar(req, res) {
       include: [
         { model: db.Grupo, as: 'grupo', attributes: ['idGrupo', 'nome'] },
         { model: db.Usuario, as: 'motorista', attributes: ['idUsuario', 'nome'] },
-        { model: db.CaronaUsuario, as: 'passageiros', attributes: ['idPivot'] },
+        { model: db.Carro, as: 'carro', attributes: ['idCarro', 'capacidade'] },
+        { model: db.CaronaUsuario, as: 'passageiros', attributes: ['idPivot', 'status'] },
       ],
       order: [['data', 'DESC'], ['idCarona', 'DESC']],
     });
 
-    const lista = caronas.map((c) => ({
-      idCarona: c.idCarona,
-      idGrupo: c.idGrupo,
-      grupoNome: c.grupo ? c.grupo.nome : null,
-      status: c.status,
-      data: c.data,
-      papel: c.idMotorista === meuId ? 'motorista' : 'passageiro',
-      motoristaNome: c.motorista ? c.motorista.nome : null,
-      totalPassageiros: c.passageiros ? c.passageiros.length : 0,
-    }));
+    const lista = caronas.map((c) => {
+      const ehMotorista = c.idMotorista === meuId;
+      const lugares = c.carro ? Math.max(c.carro.capacidade - 1, 0) : null;
+      const aprovados = (c.passageiros || []).filter(
+        (p) => p.status === PSTATUS.APROVADO,
+      ).length;
+      return {
+        idCarona: c.idCarona,
+        idGrupo: c.idGrupo,
+        grupoNome: c.grupo ? c.grupo.nome : null,
+        status: c.status,
+        data: c.data,
+        destino: c.destino,
+        papel: ehMotorista ? 'motorista' : 'passageiro',
+        motoristaNome: c.motorista ? c.motorista.nome : null,
+        lugares,
+        ocupadas: aprovados,
+        // Status do meu pedido (so faz sentido quando sou passageiro).
+        meuStatus: ehMotorista ? null : statusPorCarona.get(c.idCarona) || null,
+      };
+    });
 
     return res.status(200).json(lista);
   } catch (err) {
@@ -281,30 +454,15 @@ async function listar(req, res) {
   }
 }
 
-// Detalhe de uma carona: motorista + lista de passageiros. So membro do grupo
-// (motorista e passageiros sao membros) pode ver.
+// Detalhe de uma carona: motorista + carro + passageiros (com status). So
+// membro do grupo pode ver.
 async function detalhe(req, res) {
   try {
     const idCarona = parseIdCarona(req);
 
     const carona = await db.Carona.findOne({
       where: { idCarona, ativo: true },
-      include: [
-        { model: db.Grupo, as: 'grupo', attributes: ['idGrupo', 'nome'] },
-        { model: db.Usuario, as: 'motorista', attributes: ['idUsuario', 'nome'] },
-        {
-          model: db.Carro,
-          as: 'carro',
-          attributes: ['idCarro', 'marca', 'modelo', 'anoFabricacao', 'cor', 'placa'],
-        },
-        {
-          model: db.CaronaUsuario,
-          as: 'passageiros',
-          include: [
-            { model: db.Usuario, as: 'passageiro', attributes: ['idUsuario', 'nome'] },
-          ],
-        },
-      ],
+      include: includeDetalhe(),
     });
     if (!carona) {
       throw AppError.notFound('Carona nao encontrada.');
@@ -312,34 +470,19 @@ async function detalhe(req, res) {
 
     await ensureMembro(req.user.idUsuario, carona.idGrupo);
 
-    return res.status(200).json({
-      idCarona: carona.idCarona,
-      idGrupo: carona.idGrupo,
-      grupoNome: carona.grupo ? carona.grupo.nome : null,
-      status: carona.status,
-      data: carona.data,
-      motorista: carona.motorista
-        ? { idUsuario: carona.motorista.idUsuario, nome: carona.motorista.nome }
-        : null,
-      carro: carona.carro
-        ? {
-            idCarro: carona.carro.idCarro,
-            marca: carona.carro.marca,
-            modelo: carona.carro.modelo,
-            anoFabricacao: carona.carro.anoFabricacao,
-            cor: carona.carro.cor,
-            placa: carona.carro.placa,
-          }
-        : null,
-      passageiros: (carona.passageiros || []).map((p) => ({
-        idUsuario: p.passageiro ? p.passageiro.idUsuario : p.idPassageiro,
-        nome: p.passageiro ? p.passageiro.nome : null,
-        distancia: p.distancia,
-      })),
-    });
+    return res.status(200).json(montarDetalhe(carona));
   } catch (err) {
     return tratarErro(res, err, '[carona_controller.detalhe]');
   }
 }
 
-module.exports = { solicitar, aceitar, concluir, cancelar, listar, detalhe };
+module.exports = {
+  anunciar,
+  pedir,
+  cancelarPedido,
+  decidir,
+  concluir,
+  cancelar,
+  listar,
+  detalhe,
+};

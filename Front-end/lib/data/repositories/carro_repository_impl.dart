@@ -17,6 +17,7 @@ class CarroRepositoryImpl implements CarroRepository {
     required int anoFabricacao,
     required String cor,
     required String placa,
+    required int capacidade,
   }) {
     return remote.criar(
       marca: marca,
@@ -24,6 +25,7 @@ class CarroRepositoryImpl implements CarroRepository {
       anoFabricacao: anoFabricacao,
       cor: cor,
       placa: placa,
+      capacidade: capacidade,
     );
   }
 
@@ -35,6 +37,7 @@ class CarroRepositoryImpl implements CarroRepository {
     required int anoFabricacao,
     required String cor,
     required String placa,
+    required int capacidade,
   }) {
     return remote.atualizar(
       idCarro: idCarro,
@@ -43,6 +46,7 @@ class CarroRepositoryImpl implements CarroRepository {
       anoFabricacao: anoFabricacao,
       cor: cor,
       placa: placa,
+      capacidade: capacidade,
     );
   }
 

@@ -54,6 +54,7 @@ class CarroController extends ChangeNotifier {
     required int anoFabricacao,
     required String cor,
     required String placa,
+    required int capacidade,
   }) {
     return _mutar(() => _repo.criar(
           marca: marca,
@@ -61,6 +62,7 @@ class CarroController extends ChangeNotifier {
           anoFabricacao: anoFabricacao,
           cor: cor,
           placa: placa,
+          capacidade: capacidade,
         ));
   }
 
@@ -71,6 +73,7 @@ class CarroController extends ChangeNotifier {
     required int anoFabricacao,
     required String cor,
     required String placa,
+    required int capacidade,
   }) {
     return _mutar(() => _repo.atualizar(
           idCarro: idCarro,
@@ -79,6 +82,7 @@ class CarroController extends ChangeNotifier {
           anoFabricacao: anoFabricacao,
           cor: cor,
           placa: placa,
+          capacidade: capacidade,
         ));
   }
 

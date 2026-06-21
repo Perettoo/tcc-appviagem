@@ -31,12 +31,8 @@ class ChatRepositoryImpl implements ChatRepository {
       remote.enviar(idGrupo, conteudo);
 
   @override
-  Future<Mensagem> solicitarCarona(int idGrupo) =>
-      remote.solicitarCarona(idGrupo);
-
-  @override
-  Future<CaronaResumo> aceitarCarona(int idCarona) =>
-      remote.aceitarCarona(idCarona);
+  Future<Mensagem> anunciarCarona(int idGrupo, {String? destino}) =>
+      remote.anunciarCarona(idGrupo, destino: destino);
 
   @override
   Stream<Mensagem> conectar(int idGrupo) => socket.conectar(idGrupo);

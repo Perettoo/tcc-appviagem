@@ -16,6 +16,25 @@ class CaronaRepositoryImpl implements CaronaRepository {
   Future<CaronaDetalhe> detalhe(int idCarona) => remote.detalhe(idCarona);
 
   @override
+  Future<CaronaDetalhe> pedir(int idCarona) => remote.pedir(idCarona);
+
+  @override
+  Future<CaronaDetalhe> cancelarPedido(int idCarona) =>
+      remote.cancelarPedido(idCarona);
+
+  @override
+  Future<CaronaDetalhe> decidir({
+    required int idCarona,
+    required int idPassageiro,
+    required bool aprovar,
+  }) =>
+      remote.decidir(
+        idCarona: idCarona,
+        idPassageiro: idPassageiro,
+        aprovar: aprovar,
+      );
+
+  @override
   Future<StatusCarona> concluir(int idCarona) => remote.concluir(idCarona);
 
   @override

@@ -19,7 +19,14 @@ class CaronaItem {
   final DateTime data;
   final PapelCarona papel;
   final String? motoristaNome;
-  final int totalPassageiros;
+  final String? destino;
+
+  /// Vagas de passageiro (capacidade - 1) e quantas já ocupadas (aprovados).
+  final int? lugares;
+  final int ocupadas;
+
+  /// Status do meu pedido — só quando sou passageiro.
+  final StatusPassageiro? meuStatus;
 
   const CaronaItem({
     required this.idCarona,
@@ -29,6 +36,9 @@ class CaronaItem {
     required this.data,
     required this.papel,
     required this.motoristaNome,
-    required this.totalPassageiros,
+    required this.destino,
+    required this.lugares,
+    required this.ocupadas,
+    required this.meuStatus,
   });
 }

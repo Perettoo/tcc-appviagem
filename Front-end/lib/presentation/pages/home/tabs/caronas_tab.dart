@@ -103,13 +103,13 @@ class _CaronaItemCard extends StatelessWidget {
 
   String get _subtitulo {
     if (item.papel == PapelCarona.motorista) {
-      final n = item.totalPassageiros;
-      return 'Você é o motorista • $n passageiro${n == 1 ? '' : 's'}';
+      final vagas =
+          item.lugares == null ? '' : ' • ${item.ocupadas}/${item.lugares} vagas';
+      return 'Você é o motorista$vagas';
     }
-    if (item.status == StatusCarona.pendente) {
-      return 'Você é passageiro • aguardando motorista';
-    }
-    return 'Você é passageiro • motorista: ${item.motoristaNome ?? '—'}';
+    final status = item.meuStatus;
+    final label = status == null ? '—' : status.label;
+    return 'Passageiro • pedido: $label';
   }
 
   Future<void> _abrir(BuildContext context) async {
@@ -160,6 +160,15 @@ class _CaronaItemCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (item.destino != null && item.destino!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '→ ${item.destino}',
+                    style: AppTypography.caption,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
                 const SizedBox(height: 2),
                 Text(
                   _subtitulo,

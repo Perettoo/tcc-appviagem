@@ -37,6 +37,7 @@ function validarCarro(input) {
   const placa = (input.placa || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
   const ano = Number(input.anoFabricacao);
   const anoMax = new Date().getFullYear() + 1;
+  const capacidade = Number(input.capacidade);
 
   if (marca.length < security.CARRO_TEXTO_MIN) {
     erros.marca = `Marca deve ter ao menos ${security.CARRO_TEXTO_MIN} caracteres.`;
@@ -53,12 +54,15 @@ function validarCarro(input) {
   if (!security.CARRO_PLACA_REGEX.test(placa)) {
     erros.placa = 'Placa invalida. Use o formato ABC1234 ou ABC1D23.';
   }
+  if (!Number.isInteger(capacidade) || capacidade < security.CARRO_CAPACIDADE_MIN) {
+    erros.capacidade = `Capacidade deve ser de ao menos ${security.CARRO_CAPACIDADE_MIN} (motorista incluso).`;
+  }
 
   if (Object.keys(erros).length > 0) {
     throw AppError.validation('Dados invalidos.', erros);
   }
 
-  return { marca, modelo, cor, placa, anoFabricacao: ano };
+  return { marca, modelo, cor, placa, anoFabricacao: ano, capacidade };
 }
 
 function carroPayload(carro) {
@@ -69,6 +73,7 @@ function carroPayload(carro) {
     anoFabricacao: carro.anoFabricacao,
     cor: carro.cor,
     placa: carro.placa,
+    capacidade: carro.capacidade,
     ativo: carro.ativo,
   };
 }
@@ -128,6 +133,7 @@ async function atualizar(req, res) {
     carro.cor = dados.cor;
     carro.placa = dados.placa;
     carro.anoFabricacao = dados.anoFabricacao;
+    carro.capacidade = dados.capacidade;
     await carro.save();
 
     return res.status(200).json(carroPayload(carro));

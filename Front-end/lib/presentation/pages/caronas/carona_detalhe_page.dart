@@ -4,12 +4,15 @@ import 'package:test_tcc/core/theme/app_colors.dart';
 import 'package:test_tcc/core/theme/app_spacing.dart';
 import 'package:test_tcc/core/theme/app_typography.dart';
 import 'package:test_tcc/domain/entities/carona_detalhe.dart';
+import 'package:test_tcc/domain/entities/carona_resumo.dart';
 import 'package:test_tcc/presentation/controllers/carona_detalhe_controller.dart';
 import 'package:test_tcc/presentation/widgets/app_card.dart';
 import 'package:test_tcc/presentation/widgets/carona_status_badge.dart';
 import 'package:test_tcc/presentation/widgets/state_views.dart';
+import 'package:test_tcc/presentation/widgets/status_badge.dart';
 
-/// Detalhe de uma carona: motorista + passageiros + ações (concluir/cancelar).
+/// Detalhe de uma carona: motorista + carro + passageiros. O motorista aprova/
+/// recusa pedidos e conclui/cancela; o passageiro pede vaga / cancela o pedido.
 /// Espera um [CaronaDetalheController] já provido acima na árvore.
 class CaronaDetalhePage extends StatefulWidget {
   const CaronaDetalhePage({super.key});
@@ -25,6 +28,29 @@ class _CaronaDetalhePageState extends State<CaronaDetalhePage> {
     final hh = d.hour.toString().padLeft(2, '0');
     final min = d.minute.toString().padLeft(2, '0');
     return '$dd/$mm/${d.year} • $hh:$min';
+  }
+
+  Future<void> _pedir(CaronaDetalheController c) async {
+    final ok = await c.pedir();
+    _feedback(c, ok, 'Pedido enviado. Aguarde o motorista aprovar.');
+  }
+
+  Future<void> _cancelarPedido(CaronaDetalheController c) async {
+    final ok = await c.cancelarPedido();
+    _feedback(c, ok, 'Pedido cancelado.');
+  }
+
+  Future<void> _decidir(
+    CaronaDetalheController c,
+    PassageiroCarona p,
+    bool aprovar,
+  ) async {
+    final ok = await c.decidir(idPassageiro: p.idUsuario, aprovar: aprovar);
+    if (!mounted || ok) return;
+    // Em caso de falha (ex.: carona lotada) mostra o motivo do backend.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(c.error ?? 'Não foi possível decidir o pedido.')),
+    );
   }
 
   Future<void> _concluir(CaronaDetalheController c) async {
@@ -82,7 +108,8 @@ class _CaronaDetalhePageState extends State<CaronaDetalhePage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(ok ? sucesso : (c.error ?? 'Não foi possível concluir a ação.')),
+        content:
+            Text(ok ? sucesso : (c.error ?? 'Não foi possível concluir a ação.')),
       ),
     );
   }
@@ -104,12 +131,24 @@ class _CaronaDetalhePageState extends State<CaronaDetalhePage> {
               : Column(
                   children: [
                     Expanded(
-                      child: _Conteudo(
-                        detalhe: detalhe,
-                        dataLabel: _data(detalhe.data),
+                      child: RefreshIndicator(
+                        color: AppColors.primary,
+                        onRefresh: c.iniciar,
+                        child: _Conteudo(
+                          controller: c,
+                          detalhe: detalhe,
+                          dataLabel: _data(detalhe.data),
+                          onDecidir: (p, aprovar) => _decidir(c, p, aprovar),
+                        ),
                       ),
                     ),
-                    _AcoesBar(controller: c, onConcluir: _concluir, onCancelar: _cancelar),
+                    _AcoesBar(
+                      controller: c,
+                      onPedir: () => _pedir(c),
+                      onCancelarPedido: () => _cancelarPedido(c),
+                      onConcluir: () => _concluir(c),
+                      onCancelar: () => _cancelar(c),
+                    ),
                   ],
                 ),
     );
@@ -118,20 +157,28 @@ class _CaronaDetalhePageState extends State<CaronaDetalhePage> {
 
 class _AcoesBar extends StatelessWidget {
   final CaronaDetalheController controller;
-  final Future<void> Function(CaronaDetalheController) onConcluir;
-  final Future<void> Function(CaronaDetalheController) onCancelar;
+  final VoidCallback onPedir;
+  final VoidCallback onCancelarPedido;
+  final VoidCallback onConcluir;
+  final VoidCallback onCancelar;
 
   const _AcoesBar({
     required this.controller,
+    required this.onPedir,
+    required this.onCancelarPedido,
     required this.onConcluir,
     required this.onCancelar,
   });
 
   @override
   Widget build(BuildContext context) {
+    final podePedir = controller.podePedir;
+    final podeCancelarPedido = controller.podeCancelarPedido;
     final podeConcluir = controller.podeConcluir;
     final podeCancelar = controller.podeCancelar;
-    if (!podeConcluir && !podeCancelar) return const SizedBox.shrink();
+    if (!podePedir && !podeCancelarPedido && !podeConcluir && !podeCancelar) {
+      return const SizedBox.shrink();
+    }
 
     final agindo = controller.agindo;
 
@@ -145,10 +192,30 @@ class _AcoesBar extends StatelessWidget {
         top: false,
         child: Row(
           children: [
+            if (podePedir)
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: agindo ? null : onPedir,
+                  icon: const Icon(Icons.front_hand_outlined, size: 18),
+                  label: const Text('Pedir carona'),
+                ),
+              ),
+            if (podeCancelarPedido)
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: agindo ? null : onCancelarPedido,
+                  icon: const Icon(Icons.close, size: 18),
+                  label: const Text('Cancelar meu pedido'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                  ),
+                ),
+              ),
             if (podeCancelar)
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: agindo ? null : () => onCancelar(controller),
+                  onPressed: agindo ? null : onCancelar,
                   icon: const Icon(Icons.close, size: 18),
                   label: const Text('Cancelar'),
                   style: OutlinedButton.styleFrom(
@@ -157,12 +224,11 @@ class _AcoesBar extends StatelessWidget {
                   ),
                 ),
               ),
-            if (podeCancelar && podeConcluir)
-              const SizedBox(width: AppSpacing.md),
+            if (podeCancelar && podeConcluir) const SizedBox(width: AppSpacing.md),
             if (podeConcluir)
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: agindo ? null : () => onConcluir(controller),
+                  onPressed: agindo ? null : onConcluir,
                   icon: agindo
                       ? const SizedBox(
                           width: 18,
@@ -184,18 +250,27 @@ class _AcoesBar extends StatelessWidget {
 }
 
 class _Conteudo extends StatelessWidget {
+  final CaronaDetalheController controller;
   final CaronaDetalhe detalhe;
   final String dataLabel;
+  final void Function(PassageiroCarona, bool aprovar) onDecidir;
 
-  const _Conteudo({required this.detalhe, required this.dataLabel});
+  const _Conteudo({
+    required this.controller,
+    required this.detalhe,
+    required this.dataLabel,
+    required this.onDecidir,
+  });
 
   @override
   Widget build(BuildContext context) {
     final passageiros = detalhe.passageiros;
+    final souMotorista = controller.souMotorista;
+
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.xl),
       children: [
-        // Cabeçalho: grupo + status + data.
+        // Cabeçalho: grupo + status + data + destino.
         Row(
           children: [
             Expanded(
@@ -212,31 +287,31 @@ class _Conteudo extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(dataLabel, style: AppTypography.caption),
+        if (detalhe.destino != null && detalhe.destino!.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              const Icon(Icons.place_outlined,
+                  size: 18, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(detalhe.destino!, style: AppTypography.label),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: AppSpacing.xl),
 
         // Motorista.
         Text('Motorista', style: AppTypography.label),
         const SizedBox(height: AppSpacing.sm),
-        if (detalhe.motoristaNome != null)
-          _PessoaCard(nome: detalhe.motoristaNome!, icone: Icons.drive_eta)
-        else
-          AppCard(
-            child: Row(
-              children: [
-                const Icon(Icons.hourglass_empty, color: AppColors.warning),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    'Aguardando um motorista aceitar.',
-                    style: AppTypography.body,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        _PessoaCard(
+          nome: detalhe.motoristaNome ?? 'Motorista',
+          icone: Icons.drive_eta,
+        ),
         const SizedBox(height: AppSpacing.xl),
 
-        // Carro (atrelado no aceite). Só aparece quando há um carro definido.
+        // Carro (atrelado no anúncio).
         if (detalhe.carro != null) ...[
           Text('Carro', style: AppTypography.label),
           const SizedBox(height: AppSpacing.sm),
@@ -270,16 +345,33 @@ class _Conteudo extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
         ],
 
-        // Passageiros.
-        Text('Passageiros (${passageiros.length})', style: AppTypography.label),
+        // Passageiros + vagas.
+        Row(
+          children: [
+            Expanded(
+              child: Text('Passageiros', style: AppTypography.label),
+            ),
+            if (detalhe.lugares != null)
+              Text('${detalhe.ocupadas} de ${detalhe.lugares} vagas',
+                  style: AppTypography.caption),
+          ],
+        ),
         const SizedBox(height: AppSpacing.sm),
         if (passageiros.isEmpty)
-          Text('Nenhum passageiro.', style: AppTypography.caption)
+          Text('Nenhum pedido ainda.', style: AppTypography.caption)
         else
           ...passageiros.map(
             (p) => Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: _PessoaCard(nome: p.nome, icone: Icons.person_outline),
+              child: _PassageiroCard(
+                passageiro: p,
+                podeDecidir: souMotorista &&
+                    detalhe.status == StatusCarona.aberta &&
+                    p.status == StatusPassageiro.pendente,
+                decidindo: controller.estaDecidindo(p.idUsuario),
+                onAprovar: () => onDecidir(p, true),
+                onRecusar: () => onDecidir(p, false),
+              ),
             ),
           ),
       ],
@@ -320,6 +412,115 @@ class _PessoaCard extends StatelessWidget {
             ),
           ),
           Icon(icone, color: AppColors.textMuted, size: 20),
+        ],
+      ),
+    );
+  }
+}
+
+/// Linha de um passageiro: nome + status do pedido. Para o motorista, mostra
+/// os botões Aprovar/Recusar quando o pedido está pendente.
+class _PassageiroCard extends StatelessWidget {
+  final PassageiroCarona passageiro;
+  final bool podeDecidir;
+  final bool decidindo;
+  final VoidCallback onAprovar;
+  final VoidCallback onRecusar;
+
+  const _PassageiroCard({
+    required this.passageiro,
+    required this.podeDecidir,
+    required this.decidindo,
+    required this.onAprovar,
+    required this.onRecusar,
+  });
+
+  ({Color cor, IconData icone}) get _visual => switch (passageiro.status) {
+        StatusPassageiro.pendente => (
+            cor: AppColors.warning,
+            icone: Icons.schedule
+          ),
+        StatusPassageiro.aprovado => (
+            cor: AppColors.success,
+            icone: Icons.check_circle_outline
+          ),
+        StatusPassageiro.recusado => (
+            cor: AppColors.error,
+            icone: Icons.cancel_outlined
+          ),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final inicial = passageiro.nome.trim().isEmpty
+        ? '?'
+        : passageiro.nome.trim().characters.first.toUpperCase();
+    final v = _visual;
+
+    return AppCard(
+      child: Column(
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: AppColors.primarySoft,
+                child: Text(
+                  inicial,
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  passageiro.nome,
+                  style: AppTypography.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              StatusBadge(
+                label: passageiro.status.label,
+                color: v.cor,
+                icon: v.icone,
+              ),
+            ],
+          ),
+          if (podeDecidir) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: decidindo ? null : onRecusar,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                    ),
+                    child: const Text('Recusar'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: decidindo ? null : onAprovar,
+                    child: decidindo
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.onPrimary,
+                            ),
+                          )
+                        : const Text('Aprovar'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

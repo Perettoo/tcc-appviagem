@@ -11,15 +11,13 @@ class CaronaStatusBadge extends StatelessWidget {
   const CaronaStatusBadge({super.key, required this.status});
 
   Color get _color => switch (status) {
-        StatusCarona.pendente => AppColors.warning,
-        StatusCarona.aceita => AppColors.success,
+        StatusCarona.aberta => AppColors.success,
         StatusCarona.concluida => AppColors.primary,
         StatusCarona.cancelada => AppColors.error,
       };
 
   IconData get _icon => switch (status) {
-        StatusCarona.pendente => Icons.schedule,
-        StatusCarona.aceita => Icons.check_circle_outline,
+        StatusCarona.aberta => Icons.directions_car_outlined,
         StatusCarona.concluida => Icons.flag_outlined,
         StatusCarona.cancelada => Icons.cancel_outlined,
       };

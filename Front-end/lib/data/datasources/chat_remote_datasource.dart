@@ -71,22 +71,15 @@ class ChatRemoteDatasource {
     }
   }
 
-  /// Solicita uma carona no grupo (passageiro pedindo). O backend cria a
-  /// carona pendente e posta o pedido no chat; retorna a mensagem-card criada.
-  Future<Mensagem> solicitarCarona(int idGrupo) async {
+  /// Motorista anuncia uma carona no grupo (com destino opcional). O backend
+  /// cria a carona aberta e posta o card no chat; retorna a mensagem-card.
+  Future<Mensagem> anunciarCarona(int idGrupo, {String? destino}) async {
     try {
-      final response = await _dio.post('/grupos/$idGrupo/caronas');
+      final response = await _dio.post(
+        '/grupos/$idGrupo/caronas',
+        data: {if (destino != null && destino.isNotEmpty) 'destino': destino},
+      );
       return mensagemFromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw _mapError(e);
-    }
-  }
-
-  /// Aceita uma carona pendente (motorista). Retorna a carona atualizada.
-  Future<CaronaResumo> aceitarCarona(int idCarona) async {
-    try {
-      final response = await _dio.patch('/caronas/$idCarona/aceitar');
-      return caronaFromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw _mapError(e);
     }
@@ -189,12 +182,13 @@ Mensagem mensagemFromJson(Map<String, dynamic> j) {
 CaronaResumo caronaFromJson(Map<String, dynamic> j) {
   return CaronaResumo(
     idCarona: j['idCarona'] as int,
-    status: StatusCarona.values.firstWhere(
-      (s) => s.name == j['status'],
-      orElse: () => StatusCarona.pendente,
-    ),
+    status: statusCaronaFromString(j['status']),
     idMotorista: j['idMotorista'] as int?,
     motoristaNome: j['motoristaNome'] as String?,
+    destino: j['destino'] as String?,
+    lugares: (j['lugares'] as num?)?.toInt(),
+    ocupadas: (j['ocupadas'] as num?)?.toInt() ?? 0,
+    pendentes: (j['pendentes'] as num?)?.toInt() ?? 0,
     data: DateTime.parse(j['data'] as String).toLocal(),
   );
 }

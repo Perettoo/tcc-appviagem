@@ -1,5 +1,5 @@
 /// Um carro do usuário. `ativo` indica o carro selecionado — o que é atrelado
-/// à carona quando o motorista aceita. No máximo um ativo por usuário.
+/// à carona quando o motorista a anuncia. No máximo um ativo por usuário.
 class Carro {
   final int idCarro;
   final String marca;
@@ -7,6 +7,9 @@ class Carro {
   final int anoFabricacao;
   final String cor;
   final String placa;
+
+  /// Capacidade total (motorista incluso). Vagas de passageiro = capacidade - 1.
+  final int capacidade;
   final bool ativo;
 
   const Carro({
@@ -16,14 +19,15 @@ class Carro {
     required this.anoFabricacao,
     required this.cor,
     required this.placa,
+    required this.capacidade,
     required this.ativo,
   });
 
   /// "VW Gol" — para títulos.
   String get descricao => '$marca $modelo';
 
-  /// "Prata • 2020" — subtítulo curto.
-  String get detalhe => '$cor • $anoFabricacao';
+  /// "Prata • 2020 • 5 lugares" — subtítulo curto.
+  String get detalhe => '$cor • $anoFabricacao • $capacidade lugares';
 
   Carro copyWith({bool? ativo}) {
     return Carro(
@@ -33,6 +37,7 @@ class Carro {
       anoFabricacao: anoFabricacao,
       cor: cor,
       placa: placa,
+      capacidade: capacidade,
       ativo: ativo ?? this.ativo,
     );
   }

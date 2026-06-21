@@ -6,12 +6,25 @@ abstract class CaronaRepository {
   /// Caronas em que o usuário participa (como motorista ou passageiro).
   Future<List<CaronaItem>> listarMinhas();
 
-  /// Detalhe de uma carona (motorista + passageiros).
+  /// Detalhe de uma carona (motorista + carro + passageiros).
   Future<CaronaDetalhe> detalhe(int idCarona);
+
+  /// Passageiro pede para entrar. Retorna o detalhe atualizado.
+  Future<CaronaDetalhe> pedir(int idCarona);
+
+  /// Passageiro cancela o próprio pedido. Retorna o detalhe atualizado.
+  Future<CaronaDetalhe> cancelarPedido(int idCarona);
+
+  /// Motorista aprova/recusa o pedido de um passageiro. Retorna o detalhe.
+  Future<CaronaDetalhe> decidir({
+    required int idCarona,
+    required int idPassageiro,
+    required bool aprovar,
+  });
 
   /// Conclui a carona (só motorista). Retorna o novo status.
   Future<StatusCarona> concluir(int idCarona);
 
-  /// Cancela a carona (solicitante ou motorista). Retorna o novo status.
+  /// Cancela a carona (só motorista). Retorna o novo status.
   Future<StatusCarona> cancelar(int idCarona);
 }

@@ -53,11 +53,48 @@ class CaronaRemoteDatasource {
     }
   }
 
+  /// Passageiro pede para entrar na carona. Retorna o detalhe atualizado.
+  Future<CaronaDetalhe> pedir(int idCarona) async {
+    try {
+      final response = await _dio.post('/caronas/$idCarona/pedir');
+      return _detalheFromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw _mapError(e);
+    }
+  }
+
+  /// Passageiro cancela o próprio pedido. Retorna o detalhe atualizado.
+  Future<CaronaDetalhe> cancelarPedido(int idCarona) async {
+    try {
+      final response = await _dio.delete('/caronas/$idCarona/pedir');
+      return _detalheFromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw _mapError(e);
+    }
+  }
+
+  /// Motorista aprova/recusa o pedido de um passageiro. Retorna o detalhe.
+  Future<CaronaDetalhe> decidir({
+    required int idCarona,
+    required int idPassageiro,
+    required bool aprovar,
+  }) async {
+    try {
+      final response = await _dio.patch(
+        '/caronas/$idCarona/passageiros/$idPassageiro',
+        data: {'acao': aprovar ? 'aprovar' : 'recusar'},
+      );
+      return _detalheFromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw _mapError(e);
+    }
+  }
+
   /// Conclui a carona (só motorista). Retorna o novo status.
   Future<StatusCarona> concluir(int idCarona) =>
       _patchStatus('/caronas/$idCarona/concluir');
 
-  /// Cancela a carona (solicitante ou motorista). Retorna o novo status.
+  /// Cancela a carona (só motorista). Retorna o novo status.
   Future<StatusCarona> cancelar(int idCarona) =>
       _patchStatus('/caronas/$idCarona/cancelar');
 
@@ -65,29 +102,29 @@ class CaronaRemoteDatasource {
     try {
       final response = await _dio.patch(path);
       final data = response.data as Map<String, dynamic>;
-      return _status(data['status']);
+      return statusCaronaFromString(data['status']);
     } on DioException catch (e) {
       throw _mapError(e);
     }
   }
-
-  StatusCarona _status(dynamic raw) => StatusCarona.values.firstWhere(
-        (s) => s.name == raw,
-        orElse: () => StatusCarona.pendente,
-      );
 
   CaronaItem _itemFromJson(Map<String, dynamic> j) {
     return CaronaItem(
       idCarona: j['idCarona'] as int,
       idGrupo: j['idGrupo'] as int,
       grupoNome: (j['grupoNome'] as String?) ?? 'Grupo',
-      status: _status(j['status']),
+      status: statusCaronaFromString(j['status']),
       data: DateTime.parse(j['data'] as String).toLocal(),
       papel: j['papel'] == 'motorista'
           ? PapelCarona.motorista
           : PapelCarona.passageiro,
       motoristaNome: j['motoristaNome'] as String?,
-      totalPassageiros: (j['totalPassageiros'] as int?) ?? 0,
+      destino: j['destino'] as String?,
+      lugares: (j['lugares'] as num?)?.toInt(),
+      ocupadas: (j['ocupadas'] as num?)?.toInt() ?? 0,
+      meuStatus: j['meuStatus'] == null
+          ? null
+          : statusPassageiroFromString(j['meuStatus']),
     );
   }
 
@@ -99,14 +136,16 @@ class CaronaRemoteDatasource {
         .map((p) => PassageiroCarona(
               idUsuario: p['idUsuario'] as int,
               nome: (p['nome'] as String?) ?? 'Usuário',
+              status: statusPassageiroFromString(p['status']),
             ))
         .toList(growable: false);
     return CaronaDetalhe(
       idCarona: j['idCarona'] as int,
       idGrupo: j['idGrupo'] as int,
       grupoNome: (j['grupoNome'] as String?) ?? 'Grupo',
-      status: _status(j['status']),
+      status: statusCaronaFromString(j['status']),
       data: DateTime.parse(j['data'] as String).toLocal(),
+      destino: j['destino'] as String?,
       idMotorista: motorista is Map ? motorista['idUsuario'] as int? : null,
       motoristaNome: motorista is Map ? motorista['nome'] as String? : null,
       carro: carro is Map
@@ -117,8 +156,11 @@ class CaronaRemoteDatasource {
               anoFabricacao: carro['anoFabricacao'] as int,
               cor: carro['cor'] as String,
               placa: carro['placa'] as String,
+              capacidade: (carro['capacidade'] as num?)?.toInt() ?? 0,
             )
           : null,
+      lugares: (j['lugares'] as num?)?.toInt(),
+      ocupadas: (j['ocupadas'] as num?)?.toInt() ?? 0,
       passageiros: passageiros,
     );
   }
