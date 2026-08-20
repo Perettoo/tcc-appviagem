@@ -11,6 +11,10 @@ module.exports = {
   CPF_TAMANHO: 11,
   EMAIL_REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   GRUPO_NOME_TAMANHO_MIN: 3,
+  // Saldo (em reais) do usuario. Nao ha transacao bancaria: o proprio usuario
+  // informa o valor na tela Inicio, entao so limitamos a faixa aceita.
+  SALDO_MIN: 0,
+  SALDO_MAX: 999999.99,
   MENSAGEM_TAMANHO_MIN: 1,
   MENSAGEM_TAMANHO_MAX: 2000,
   BUSCA_TAMANHO_MIN: 2,
@@ -37,6 +41,17 @@ module.exports = {
   CARONA_DESTINO_MAX: 120,
   // Mensagem quando o motorista tenta aprovar alem do limite de passageiros.
   CARONA_LOTADA_MSG: 'A carona ja atingiu o limite de passageiros.',
+  // Custos da viagem. O motorista informa quanto rodou e quanto pagou no litro;
+  // como nao guardamos o consumo de cada carro, usamos um consumo medio (km/L)
+  // para converter os km em litros.
+  CARONA_CONSUMO_MEDIO_KM_L: 10,
+  // Taxa do app cobrada por km rodado. Entra no total da viagem antes do rateio
+  // entre os passageiros.
+  CARONA_TAXA_POR_KM: 0.1,
+  CARONA_KM_MIN: 0.1,
+  CARONA_KM_MAX: 5000,
+  CARONA_VALOR_LITRO_MIN: 0.01,
+  CARONA_VALOR_LITRO_MAX: 99.99,
   // Tipos de usuario aptos a dirigir/anunciar uma carona (subconjunto do enum
   // usuario.tipo). Passageiro puro nao pode anunciar.
   CARONA_TIPOS_MOTORISTA: ['motorista', 'ambos'],

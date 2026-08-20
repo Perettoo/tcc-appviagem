@@ -36,6 +36,17 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: security.CARONA_STATUS.ABERTA,
       },
+      // Custos da viagem, informados pelo motorista enquanto a carona esta
+      // aberta. Nulos ate ele preencher; sempre andam juntos, porque o total so
+      // faz sentido com os dois.
+      kmRodados: {
+        type: DataTypes.DECIMAL(8, 2),
+        allowNull: true,
+      },
+      valorLitro: {
+        type: DataTypes.DECIMAL(6, 2),
+        allowNull: true,
+      },
       data: {
         type: DataTypes.DATE,
         allowNull: false,

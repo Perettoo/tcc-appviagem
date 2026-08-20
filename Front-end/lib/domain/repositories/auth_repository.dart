@@ -12,5 +12,9 @@ abstract class AuthRepository {
     required TipoUsuario tipo,
   });
 
-  Future<User> atualizarPerfil({String? email, DateTime? dataNascimento});
+  Future<User> atualizarPerfil({
+    String? email,
+    DateTime? dataNascimento,
+    double? valor,
+  });
 }

@@ -4,6 +4,7 @@ const db = require('../../models');
 const AppError = require('../../utils/app_error');
 const security = require('../../config/security');
 const { ensureMembro } = require('../../utils/membership');
+const { calcularCustos } = require('../../utils/carona_custos');
 const {
   montarPayload,
   includeMensagem,
@@ -36,6 +37,13 @@ function parseIdPassageiro(req) {
     throw AppError.validation('Passageiro invalido.');
   }
   return id;
+}
+
+// Numero decimal vindo do body, em centavos. Null quando ausente/invalido.
+function parseDecimal(valor) {
+  if (valor === null || valor === undefined || valor === '') return null;
+  const n = Number(valor);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
 }
 
 function tratarErro(res, err, tag) {
@@ -79,7 +87,8 @@ const includeDetalhe = () => [
   },
 ];
 
-// Monta o JSON de detalhe (motorista, carro, vagas e passageiros com status).
+// Monta o JSON de detalhe (motorista, carro, vagas, passageiros com status e
+// os custos/rateio da viagem).
 function montarDetalhe(carona) {
   const lugares = carona.carro
     ? Math.max(carona.carro.capacidade - 1, 0)
@@ -90,6 +99,12 @@ function montarDetalhe(carona) {
     status: p.status,
   }));
   const ocupadas = passageiros.filter((p) => p.status === PSTATUS.APROVADO).length;
+  // O rateio e sobre os passageiros aprovados (quem de fato foi de carona).
+  const custos = calcularCustos({
+    kmRodados: carona.kmRodados,
+    valorLitro: carona.valorLitro,
+    passageiros: ocupadas,
+  });
 
   return {
     idCarona: carona.idCarona,
@@ -115,6 +130,8 @@ function montarDetalhe(carona) {
         }
       : null,
     passageiros,
+    // Null enquanto o motorista nao informar km + valor do litro.
+    custos,
   };
 }
 
@@ -346,6 +363,53 @@ async function decidir(req, res) {
   }
 }
 
+// Motorista informa os custos da viagem: km rodados e o valor pago no litro.
+// Editavel enquanto a carona esta aberta; os dois vem juntos, porque o total da
+// viagem so existe com ambos. Devolve o detalhe com o rateio recalculado.
+async function atualizarCustos(req, res) {
+  try {
+    const idCarona = parseIdCarona(req);
+    const carona = await buscarCarona(idCarona);
+    await ensureMembro(req.user.idUsuario, carona.idGrupo);
+
+    if (carona.idMotorista !== req.user.idUsuario) {
+      throw AppError.forbidden(
+        'Apenas o motorista pode informar os custos da viagem.',
+      );
+    }
+    if (carona.status !== STATUS.ABERTA) {
+      throw AppError.conflict(
+        'Os custos so podem ser informados enquanto a carona esta aberta.',
+      );
+    }
+
+    const erros = {};
+    const km = parseDecimal(req.body.kmRodados);
+    const litro = parseDecimal(req.body.valorLitro);
+
+    if (km === null || km < security.CARONA_KM_MIN || km > security.CARONA_KM_MAX) {
+      erros.kmRodados = `Km rodados deve estar entre ${security.CARONA_KM_MIN} e ${security.CARONA_KM_MAX}.`;
+    }
+    if (
+      litro === null
+      || litro < security.CARONA_VALOR_LITRO_MIN
+      || litro > security.CARONA_VALOR_LITRO_MAX
+    ) {
+      erros.valorLitro = `Valor do litro deve estar entre ${security.CARONA_VALOR_LITRO_MIN} e ${security.CARONA_VALOR_LITRO_MAX}.`;
+    }
+    if (Object.keys(erros).length > 0) {
+      throw AppError.validation('Dados invalidos.', erros);
+    }
+
+    await carona.update({ kmRodados: km, valorLitro: litro });
+
+    await emitirAtualizacao(req, idCarona, carona.idGrupo);
+    return await responderDetalhe(res, idCarona);
+  } catch (err) {
+    return tratarErro(res, err, '[carona_controller.atualizarCustos]');
+  }
+}
+
 // So o motorista conclui, e somente enquanto a carona esta 'aberta'.
 async function concluir(req, res) {
   try {
@@ -481,6 +545,7 @@ module.exports = {
   pedir,
   cancelarPedido,
   decidir,
+  atualizarCustos,
   concluir,
   cancelar,
   listar,

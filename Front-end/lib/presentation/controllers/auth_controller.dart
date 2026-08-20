@@ -79,13 +79,19 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  /// Edita o perfil (e-mail e/ou data de nascimento) e atualiza o usuário
-  /// corrente. Retorna true em sucesso; em falha, [error] traz a mensagem.
-  Future<bool> atualizarPerfil({String? email, DateTime? dataNascimento}) async {
+  /// Edita o perfil (e-mail, data de nascimento e/ou saldo) e atualiza o
+  /// usuário corrente. Retorna true em sucesso; em falha, [error] traz a
+  /// mensagem.
+  Future<bool> atualizarPerfil({
+    String? email,
+    DateTime? dataNascimento,
+    double? valor,
+  }) async {
     try {
       _currentUser = await _atualizarPerfilUseCase(
         email: email,
         dataNascimento: dataNascimento,
+        valor: valor,
       );
       _error = null;
       notifyListeners();

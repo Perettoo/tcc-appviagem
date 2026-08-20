@@ -44,13 +44,7 @@ class AuthRemoteDatasource {
 
       _tokenStorage.save(token);
 
-      return User(
-        idUsuario: u['idUsuario'] as int,
-        name: u['nome'] as String,
-        email: u['email'] as String,
-        dataNascimento: DateTime.parse(u['dataNascimento'] as String),
-        tipo: TipoUsuario.values.firstWhere((t) => t.name == u['tipo']),
-      );
+      return _userFromJson(u);
     } on DioException catch (e) {
       throw _mapLoginError(e);
     }
@@ -77,22 +71,19 @@ class AuthRemoteDatasource {
           'tipo': tipo.name,
         },
       );
-      final data = response.data as Map<String, dynamic>;
-      return User(
-        idUsuario: data['idUsuario'] as int,
-        name: data['nome'] as String,
-        email: data['email'] as String,
-        dataNascimento: DateTime.parse(data['dataNascimento'] as String),
-        tipo: TipoUsuario.values.firstWhere((t) => t.name == data['tipo']),
-      );
+      return _userFromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw _mapRegisterError(e);
     }
   }
 
-  /// Atualiza o próprio perfil (e-mail e/ou data de nascimento). Envia só os
-  /// campos informados. Retorna o usuário com os dados atualizados.
-  Future<User> atualizarPerfil({String? email, DateTime? dataNascimento}) async {
+  /// Atualiza o próprio perfil (e-mail, data de nascimento e/ou saldo). Envia
+  /// só os campos informados. Retorna o usuário com os dados atualizados.
+  Future<User> atualizarPerfil({
+    String? email,
+    DateTime? dataNascimento,
+    double? valor,
+  }) async {
     try {
       final data = <String, dynamic>{};
       if (email != null) data['email'] = email;
@@ -100,18 +91,25 @@ class AuthRemoteDatasource {
         data['dataNascimento'] =
             dataNascimento.toIso8601String().substring(0, 10);
       }
+      if (valor != null) data['valor'] = valor;
       final response = await _dio.patch('/usuarios/me', data: data);
-      final u = response.data as Map<String, dynamic>;
-      return User(
-        idUsuario: u['idUsuario'] as int,
-        name: u['nome'] as String,
-        email: u['email'] as String,
-        dataNascimento: DateTime.parse(u['dataNascimento'] as String),
-        tipo: TipoUsuario.values.firstWhere((t) => t.name == u['tipo']),
-      );
+      return _userFromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw _mapRegisterError(e);
     }
+  }
+
+  /// O backend devolve o usuário no mesmo formato no login, no cadastro e na
+  /// edição de perfil.
+  User _userFromJson(Map<String, dynamic> u) {
+    return User(
+      idUsuario: u['idUsuario'] as int,
+      name: u['nome'] as String,
+      email: u['email'] as String,
+      dataNascimento: DateTime.parse(u['dataNascimento'] as String),
+      tipo: TipoUsuario.values.firstWhere((t) => t.name == u['tipo']),
+      valor: (u['valor'] as num?)?.toDouble() ?? 0,
+    );
   }
 
   AuthFailure _mapLoginError(DioException e) {

@@ -1,17 +1,22 @@
+import 'package:test_tcc/core/config/app_constants.dart';
 import 'package:test_tcc/core/utils/email_validator.dart';
 import 'package:test_tcc/domain/entities/user.dart';
 import 'package:test_tcc/domain/failures/auth_failure.dart';
 import 'package:test_tcc/domain/repositories/auth_repository.dart';
 
-/// Edita o próprio perfil (e-mail e/ou data de nascimento). Valida no cliente
-/// antes de chamar o backend (que revalida e checa unicidade do e-mail).
+/// Edita o próprio perfil (e-mail, data de nascimento e/ou saldo). Valida no
+/// cliente antes de chamar o backend (que revalida e checa unicidade do e-mail).
 class AtualizarPerfilUseCase {
   final AuthRepository repository;
 
   const AtualizarPerfilUseCase(this.repository);
 
-  Future<User> call({String? email, DateTime? dataNascimento}) async {
-    if (email == null && dataNascimento == null) {
+  Future<User> call({
+    String? email,
+    DateTime? dataNascimento,
+    double? valor,
+  }) async {
+    if (email == null && dataNascimento == null && valor == null) {
       throw const EmptyFieldsFailure();
     }
 
@@ -27,9 +32,16 @@ class AtualizarPerfilUseCase {
       throw const UnderageFailure();
     }
 
+    // Saldo é só um número informado pelo usuário; a única regra é a faixa.
+    if (valor != null &&
+        (valor < AppConstants.saldoMin || valor > AppConstants.saldoMax)) {
+      throw const InvalidSaldoFailure();
+    }
+
     return repository.atualizarPerfil(
       email: emailLimpo,
       dataNascimento: dataNascimento,
+      valor: valor,
     );
   }
 

@@ -22,6 +22,14 @@ abstract class CaronaRepository {
     required bool aprovar,
   });
 
+  /// Motorista informa km rodados + valor do litro (base do rateio da viagem).
+  /// Retorna o detalhe com os custos recalculados.
+  Future<CaronaDetalhe> atualizarCustos({
+    required int idCarona,
+    required double kmRodados,
+    required double valorLitro,
+  });
+
   /// Conclui a carona (só motorista). Retorna o novo status.
   Future<StatusCarona> concluir(int idCarona);
 

@@ -35,6 +35,18 @@ class CaronaRepositoryImpl implements CaronaRepository {
       );
 
   @override
+  Future<CaronaDetalhe> atualizarCustos({
+    required int idCarona,
+    required double kmRodados,
+    required double valorLitro,
+  }) =>
+      remote.atualizarCustos(
+        idCarona: idCarona,
+        kmRodados: kmRodados,
+        valorLitro: valorLitro,
+      );
+
+  @override
   Future<StatusCarona> concluir(int idCarona) => remote.concluir(idCarona);
 
   @override

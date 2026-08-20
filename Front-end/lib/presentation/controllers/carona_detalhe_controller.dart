@@ -65,6 +65,9 @@ class CaronaDetalheController extends ChangeNotifier {
 
   bool get _aberta => _detalhe?.status == StatusCarona.aberta;
 
+  /// Só o motorista informa os custos, e só enquanto a carona está aberta.
+  bool get podeEditarCustos => _aberta && souMotorista;
+
   /// Só o motorista conclui, e só enquanto a carona está aberta.
   bool get podeConcluir => _aberta && souMotorista;
 
@@ -115,6 +118,18 @@ class CaronaDetalheController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// Motorista informa km rodados e valor do litro; o backend devolve o
+  /// detalhe já com o total da viagem e o rateio por passageiro.
+  Future<bool> atualizarCustos({
+    required double kmRodados,
+    required double valorLitro,
+  }) =>
+      _mutarDetalhe(() => _repo.atualizarCustos(
+            idCarona: idCarona,
+            kmRodados: kmRodados,
+            valorLitro: valorLitro,
+          ));
 
   Future<bool> concluir() => _agirStatus(() => _repo.concluir(idCarona));
   Future<bool> cancelar() => _agirStatus(() => _repo.cancelar(idCarona));

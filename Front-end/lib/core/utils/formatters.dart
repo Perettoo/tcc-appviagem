@@ -30,6 +30,33 @@ String formatCep(String raw) {
   return '${d.substring(0, 5)}-${d.substring(5, 8)}';
 }
 
+/// 1234.5 → R$ 1.234,50
+String formatMoeda(num valor) {
+  final negativo = valor < 0;
+  final centavos = (valor.abs() * 100).round();
+  final inteiros = (centavos ~/ 100).toString();
+  final decimais = (centavos % 100).toString().padLeft(2, '0');
+
+  final milhares = StringBuffer();
+  for (var i = 0; i < inteiros.length; i++) {
+    if (i > 0 && (inteiros.length - i) % 3 == 0) milhares.write('.');
+    milhares.write(inteiros[i]);
+  }
+
+  return '${negativo ? '-' : ''}R\$ $milhares,$decimais';
+}
+
+/// "R$ 1.234,56", "1234,56" ou "1234.56" → 1234.56 (null se inválido).
+/// No formato BR o ponto é separador de milhar e a vírgula é decimal.
+double? parseMoeda(String raw) {
+  final limpo = raw.trim().replaceAll(RegExp(r'[^0-9,.]'), '');
+  if (limpo.isEmpty) return null;
+  final normalizado = limpo.contains(',')
+      ? limpo.replaceAll('.', '').replaceAll(',', '.')
+      : limpo;
+  return double.tryParse(normalizado);
+}
+
 /// DateTime → DD/MM/AAAA
 String formatData(DateTime data) {
   final dia = data.day.toString().padLeft(2, '0');

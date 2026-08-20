@@ -71,6 +71,7 @@ async function login(req, res) {
         dataNascimento: usuario.dataNascimento,
         dataCadastro: usuario.dataCadastro,
         ativo: usuario.ativo,
+        valor: Number(usuario.valor),
       },
     });
   } catch (err) {

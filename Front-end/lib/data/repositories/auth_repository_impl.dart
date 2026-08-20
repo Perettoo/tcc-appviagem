@@ -35,7 +35,15 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<User> atualizarPerfil({String? email, DateTime? dataNascimento}) {
-    return remote.atualizarPerfil(email: email, dataNascimento: dataNascimento);
+  Future<User> atualizarPerfil({
+    String? email,
+    DateTime? dataNascimento,
+    double? valor,
+  }) {
+    return remote.atualizarPerfil(
+      email: email,
+      dataNascimento: dataNascimento,
+      valor: valor,
+    );
   }
 }

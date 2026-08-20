@@ -50,6 +50,11 @@ class UnderageFailure extends AuthFailure {
   const UnderageFailure() : super('Usuário deve ter no mínimo 18 anos.');
 }
 
+class InvalidSaldoFailure extends AuthFailure {
+  const InvalidSaldoFailure()
+      : super('Informe um valor válido (a partir de R\$ 0,00).');
+}
+
 class RegistrationFailure extends AuthFailure {
   const RegistrationFailure(super.message);
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:test_tcc/core/config/app_constants.dart';
 import 'package:test_tcc/core/theme/app_colors.dart';
 import 'package:test_tcc/core/theme/app_spacing.dart';
 import 'package:test_tcc/core/theme/app_typography.dart';
+import 'package:test_tcc/core/utils/formatters.dart';
 import 'package:test_tcc/domain/entities/carona_detalhe.dart';
 import 'package:test_tcc/domain/entities/carona_resumo.dart';
 import 'package:test_tcc/presentation/controllers/carona_detalhe_controller.dart';
@@ -51,6 +53,92 @@ class _CaronaDetalhePageState extends State<CaronaDetalhePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(c.error ?? 'Não foi possível decidir o pedido.')),
     );
+  }
+
+  /// Motorista informa km rodados + valor do litro. O total da viagem e o
+  /// rateio por passageiro são calculados no backend.
+  Future<void> _editarCustos(CaronaDetalheController c) async {
+    final custos = c.detalhe?.custos;
+    final kmController = TextEditingController(text: _decimal(custos?.kmRodados));
+    final litroController =
+        TextEditingController(text: _decimal(custos?.valorLitro));
+
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Custos da viagem'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Informe quanto rodou e quanto pagou no litro ao abastecer. '
+              'O total é dividido entre os passageiros aprovados.',
+              style: AppTypography.caption,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: kmController,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Km rodados',
+                suffixText: 'km',
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: litroController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Valor do litro',
+                prefixText: 'R\$ ',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmou != true || !mounted) return;
+
+    final km = parseMoeda(kmController.text);
+    final litro = parseMoeda(litroController.text);
+    if (km == null ||
+        km < AppConstants.caronaKmMin ||
+        km > AppConstants.caronaKmMax) {
+      _aviso('Informe os km rodados (até ${AppConstants.caronaKmMax.toInt()} km).');
+      return;
+    }
+    if (litro == null ||
+        litro < AppConstants.caronaValorLitroMin ||
+        litro > AppConstants.caronaValorLitroMax) {
+      _aviso('Informe o valor do litro (até '
+          '${formatMoeda(AppConstants.caronaValorLitroMax)}).');
+      return;
+    }
+
+    final ok = await c.atualizarCustos(kmRodados: km, valorLitro: litro);
+    _feedback(c, ok, 'Custos da viagem atualizados.');
+  }
+
+  /// 37.5 → "37,50" (vazio quando ainda não informado).
+  String _decimal(double? valor) =>
+      valor == null ? '' : valor.toStringAsFixed(2).replaceAll('.', ',');
+
+  void _aviso(String mensagem) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(mensagem)));
   }
 
   Future<void> _concluir(CaronaDetalheController c) async {
@@ -139,6 +227,7 @@ class _CaronaDetalhePageState extends State<CaronaDetalhePage> {
                           detalhe: detalhe,
                           dataLabel: _data(detalhe.data),
                           onDecidir: (p, aprovar) => _decidir(c, p, aprovar),
+                          onEditarCustos: () => _editarCustos(c),
                         ),
                       ),
                     ),
@@ -254,12 +343,14 @@ class _Conteudo extends StatelessWidget {
   final CaronaDetalhe detalhe;
   final String dataLabel;
   final void Function(PassageiroCarona, bool aprovar) onDecidir;
+  final VoidCallback onEditarCustos;
 
   const _Conteudo({
     required this.controller,
     required this.detalhe,
     required this.dataLabel,
     required this.onDecidir,
+    required this.onEditarCustos,
   });
 
   @override
@@ -345,6 +436,16 @@ class _Conteudo extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
         ],
 
+        // Custos da viagem e rateio.
+        Text('Custos da viagem', style: AppTypography.label),
+        const SizedBox(height: AppSpacing.sm),
+        _CustosCard(
+          custos: detalhe.custos,
+          podeEditar: controller.podeEditarCustos,
+          onEditar: onEditarCustos,
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
         // Passageiros + vagas.
         Row(
           children: [
@@ -375,6 +476,154 @@ class _Conteudo extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Custos da viagem: combustível (km ÷ consumo médio × R$/litro) + taxa por km,
+/// e o quanto cada passageiro aprovado paga. Só o motorista edita, enquanto a
+/// carona está aberta. Nada é debitado — o valor é apenas informativo.
+class _CustosCard extends StatelessWidget {
+  final CustosCarona? custos;
+  final bool podeEditar;
+  final VoidCallback onEditar;
+
+  const _CustosCard({
+    required this.custos,
+    required this.podeEditar,
+    required this.onEditar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = custos;
+
+    if (c == null) {
+      return AppCard(
+        onTap: podeEditar ? onEditar : null,
+        child: Row(
+          children: [
+            const Icon(Icons.local_gas_station_outlined,
+                color: AppColors.textMuted),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                podeEditar
+                    ? 'Informe os km rodados e o valor do litro para calcular o rateio.'
+                    : 'O motorista ainda não informou os custos da viagem.',
+                style: AppTypography.caption,
+              ),
+            ),
+            if (podeEditar)
+              const Icon(Icons.chevron_right, color: AppColors.textMuted),
+          ],
+        ),
+      );
+    }
+
+    final porPassageiro = c.valorPorPassageiro;
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('Total da viagem', style: AppTypography.caption),
+              ),
+              Text(formatMoeda(c.total), style: AppTypography.title),
+              if (podeEditar)
+                IconButton(
+                  onPressed: onEditar,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  color: AppColors.primary,
+                  tooltip: 'Editar custos',
+                  visualDensity: VisualDensity.compact,
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _LinhaCusto(
+            label: 'Distância',
+            valor: '${_numero(c.kmRodados)} km',
+          ),
+          _LinhaCusto(
+            label: 'Litro (${_numero(c.litros)} L a ${formatMoeda(c.valorLitro)})',
+            valor: formatMoeda(c.combustivel),
+          ),
+          _LinhaCusto(
+            label: 'Taxa (${formatMoeda(c.taxaPorKm)}/km)',
+            valor: formatMoeda(c.taxa),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: porPassageiro == null
+                ? Text(
+                    'Sem passageiros aprovados: o total ainda não tem como ser dividido.',
+                    style: AppTypography.caption,
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Por passageiro (${c.passageiros})',
+                          style: AppTypography.label,
+                        ),
+                      ),
+                      Text(
+                        formatMoeda(porPassageiro),
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Consumo médio considerado: ${_numero(c.consumoMedio)} km/L.',
+            style: AppTypography.caption,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 37.5 → "37,5"; 10.0 → "10".
+  String _numero(double valor) {
+    final texto = valor.toStringAsFixed(2);
+    return texto
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '')
+        .replaceAll('.', ',');
+  }
+}
+
+class _LinhaCusto extends StatelessWidget {
+  final String label;
+  final String valor;
+
+  const _LinhaCusto({required this.label, required this.valor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: AppTypography.caption)),
+          Text(valor, style: AppTypography.caption),
+        ],
+      ),
     );
   }
 }

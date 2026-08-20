@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:test_tcc/core/theme/app_colors.dart';
 import 'package:test_tcc/core/theme/app_spacing.dart';
 import 'package:test_tcc/core/theme/app_typography.dart';
+import 'package:test_tcc/core/utils/formatters.dart';
 import 'package:test_tcc/core/utils/greeting.dart';
 import 'package:test_tcc/domain/entities/user.dart';
 import 'package:test_tcc/presentation/controllers/auth_controller.dart';
@@ -30,6 +31,10 @@ class InicioTab extends StatelessWidget {
           children: [
             _Saudacao(user: user),
             const SizedBox(height: AppSpacing.xl),
+            if (user != null) ...[
+              _CardSaldo(user: user),
+              const SizedBox(height: AppSpacing.xl),
+            ],
             const SectionHeader(title: 'Ações rápidas'),
             const SizedBox(height: AppSpacing.md),
             AppCard(
@@ -96,6 +101,125 @@ class _Saudacao extends StatelessWidget {
         if (user != null)
           StatusBadge(label: user!.tipo.label, icon: Icons.verified_user),
       ],
+    );
+  }
+}
+
+/// Indicador do saldo do usuário. Não há transação bancária: o usuário
+/// simplesmente digita quanto tem e o valor é gravado no perfil.
+class _CardSaldo extends StatefulWidget {
+  final User user;
+
+  const _CardSaldo({required this.user});
+
+  @override
+  State<_CardSaldo> createState() => _CardSaldoState();
+}
+
+class _CardSaldoState extends State<_CardSaldo> {
+  Future<void> _editar() async {
+    final controller = TextEditingController(
+      text: widget.user.valor.toStringAsFixed(2).replaceAll('.', ','),
+    );
+    final digitado = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Meu saldo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Informe quanto você tem. É só um valor de teste — nenhuma '
+              'transação bancária é feita.',
+              style: AppTypography.caption,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Valor',
+                prefixText: 'R\$ ',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    if (digitado == null || !mounted) return;
+
+    final novo = parseMoeda(digitado);
+    if (novo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Valor inválido.')),
+      );
+      return;
+    }
+
+    final auth = context.read<AuthController>();
+    final ok = await auth.atualizarPerfil(valor: novo);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok ? 'Saldo atualizado.' : (auth.error ?? 'Não foi possível salvar.'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: _editar,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: const Icon(Icons.account_balance_wallet_outlined,
+                color: AppColors.primary),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Meu saldo', style: AppTypography.caption),
+                const SizedBox(height: 2),
+                Text(
+                  formatMoeda(widget.user.valor),
+                  style: AppTypography.headline,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _editar,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            color: AppColors.primary,
+            tooltip: 'Alterar valor',
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -96,6 +96,7 @@ async function registrar(req, res) {
       dataNascimento: usuario.dataNascimento,
       dataCadastro: usuario.dataCadastro,
       ativo: usuario.ativo,
+      valor: Number(usuario.valor),
     });
   } catch (err) {
     if (err instanceof AppError) {
@@ -129,8 +130,8 @@ function idadeEm(dataNasc) {
     - (hoje < new Date(hoje.getFullYear(), dataNasc.getMonth(), dataNasc.getDate()) ? 1 : 0);
 }
 
-// Atualiza o proprio perfil: hoje so e-mail e data de nascimento (editaveis
-// pela tela de perfil). Aceita atualizacao parcial (um campo por vez).
+// Atualiza o proprio perfil: e-mail e data de nascimento (tela de perfil) e o
+// saldo (tela Inicio). Aceita atualizacao parcial (um campo por vez).
 async function atualizarMe(req, res) {
   try {
     const idUsuario = req.user.idUsuario;
@@ -166,6 +167,21 @@ async function atualizarMe(req, res) {
       }
     }
 
+    // Saldo: o usuario simplesmente informa quanto tem (sem transacao
+    // bancaria), entao a unica regra e a faixa aceita.
+    if (req.body.valor !== undefined) {
+      const valor = Number(req.body.valor);
+      if (
+        !Number.isFinite(valor)
+        || valor < security.SALDO_MIN
+        || valor > security.SALDO_MAX
+      ) {
+        erros.valor = `Valor deve estar entre ${security.SALDO_MIN} e ${security.SALDO_MAX}.`;
+      } else {
+        mudancas.valor = Math.round(valor * 100) / 100;
+      }
+    }
+
     if (Object.keys(erros).length > 0) {
       throw AppError.validation('Dados invalidos.', erros);
     }
@@ -180,6 +196,7 @@ async function atualizarMe(req, res) {
       email: usuario.email,
       tipo: usuario.tipo,
       dataNascimento: usuario.dataNascimento,
+      valor: Number(usuario.valor),
     });
   } catch (err) {
     if (err instanceof AppError) {

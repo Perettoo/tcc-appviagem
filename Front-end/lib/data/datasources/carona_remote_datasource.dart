@@ -90,6 +90,24 @@ class CaronaRemoteDatasource {
     }
   }
 
+  /// Motorista informa km rodados + valor do litro (base do rateio da viagem).
+  /// Retorna o detalhe com os custos recalculados.
+  Future<CaronaDetalhe> atualizarCustos({
+    required int idCarona,
+    required double kmRodados,
+    required double valorLitro,
+  }) async {
+    try {
+      final response = await _dio.patch(
+        '/caronas/$idCarona/custos',
+        data: {'kmRodados': kmRodados, 'valorLitro': valorLitro},
+      );
+      return _detalheFromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw _mapError(e);
+    }
+  }
+
   /// Conclui a carona (só motorista). Retorna o novo status.
   Future<StatusCarona> concluir(int idCarona) =>
       _patchStatus('/caronas/$idCarona/concluir');
@@ -162,6 +180,25 @@ class CaronaRemoteDatasource {
       lugares: (j['lugares'] as num?)?.toInt(),
       ocupadas: (j['ocupadas'] as num?)?.toInt() ?? 0,
       passageiros: passageiros,
+      custos: _custosFromJson(j['custos']),
+    );
+  }
+
+  /// Null quando o motorista ainda não informou km + valor do litro.
+  CustosCarona? _custosFromJson(Object? raw) {
+    if (raw is! Map) return null;
+    double num0(String campo) => (raw[campo] as num?)?.toDouble() ?? 0;
+    return CustosCarona(
+      kmRodados: num0('kmRodados'),
+      valorLitro: num0('valorLitro'),
+      consumoMedio: num0('consumoMedio'),
+      litros: num0('litros'),
+      combustivel: num0('combustivel'),
+      taxaPorKm: num0('taxaPorKm'),
+      taxa: num0('taxa'),
+      total: num0('total'),
+      passageiros: (raw['passageiros'] as num?)?.toInt() ?? 0,
+      valorPorPassageiro: (raw['valorPorPassageiro'] as num?)?.toDouble(),
     );
   }
 

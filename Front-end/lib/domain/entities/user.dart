@@ -17,11 +17,16 @@ class User {
   final DateTime dataNascimento;
   final TipoUsuario tipo;
 
+  /// Saldo em reais. Não há transação bancária: o próprio usuário informa
+  /// quanto tem, pela tela Início.
+  final double valor;
+
   const User({
     required this.idUsuario,
     required this.name,
     required this.email,
     required this.dataNascimento,
     required this.tipo,
+    required this.valor,
   });
 }

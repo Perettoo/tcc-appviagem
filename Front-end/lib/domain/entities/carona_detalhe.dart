@@ -37,6 +37,48 @@ class CarroCarona {
   String get detalhe => '$cor • $anoFabricacao';
 }
 
+/// Custos da viagem e o rateio, calculados pelo backend a partir dos km
+/// rodados e do valor do litro informados pelo motorista.
+///
+/// combustível = (km ÷ consumo médio) × valor do litro
+/// taxa        = km × taxa por km
+/// total       = combustível + taxa, dividido pelos passageiros aprovados.
+class CustosCarona {
+  final double kmRodados;
+  final double valorLitro;
+
+  /// Consumo médio (km/L) usado para converter km em litros.
+  final double consumoMedio;
+  final double litros;
+  final double combustivel;
+
+  /// Taxa cobrada por km rodado e o total dela na viagem.
+  final double taxaPorKm;
+  final double taxa;
+
+  /// Combustível + taxa.
+  final double total;
+
+  /// Passageiros aprovados que dividem o total.
+  final int passageiros;
+
+  /// Total ÷ passageiros. Null enquanto não há passageiro aprovado.
+  final double? valorPorPassageiro;
+
+  const CustosCarona({
+    required this.kmRodados,
+    required this.valorLitro,
+    required this.consumoMedio,
+    required this.litros,
+    required this.combustivel,
+    required this.taxaPorKm,
+    required this.taxa,
+    required this.total,
+    required this.passageiros,
+    required this.valorPorPassageiro,
+  });
+}
+
 /// Detalhe de uma carona: motorista + carro + passageiros (com status).
 class CaronaDetalhe {
   final int idCarona;
@@ -55,6 +97,9 @@ class CaronaDetalhe {
 
   final List<PassageiroCarona> passageiros;
 
+  /// Custos da viagem. Null enquanto o motorista não informar km + R$/litro.
+  final CustosCarona? custos;
+
   const CaronaDetalhe({
     required this.idCarona,
     required this.idGrupo,
@@ -68,6 +113,7 @@ class CaronaDetalhe {
     required this.lugares,
     required this.ocupadas,
     required this.passageiros,
+    required this.custos,
   });
 
   /// Vagas restantes (nunca negativo), quando há informação de lugares.
@@ -89,6 +135,7 @@ class CaronaDetalhe {
       lugares: lugares,
       ocupadas: ocupadas,
       passageiros: passageiros,
+      custos: custos,
     );
   }
 }
