@@ -129,9 +129,16 @@ class AuthRemoteDatasource {
       if (campo == 'nome') return const NameInUseFailure();
     }
     if (body is Map && body['error'] == 'VALIDATION') {
-      final details = body['details'] as Map?;
-      final first = details?.values.first;
-      return RegistrationFailure(first?.toString() ?? 'Dados invalidos.');
+      // 'details' so vem quando o erro e campo a campo; validacao de regra
+      // unica vem so em 'message'. Sem esse fallback o usuario recebe um
+      // "Dados invalidos." generico que nao diz o que fazer.
+      final details = body['details'];
+      if (details is Map && details.isNotEmpty) {
+        return RegistrationFailure(details.values.first.toString());
+      }
+      final msg = body['message'];
+      return RegistrationFailure(
+          msg is String && msg.isNotEmpty ? msg : 'Dados invalidos.');
     }
     return const RegistrationFailure(
         'Nao foi possivel conectar ao servidor. Verifique sua conexao.');

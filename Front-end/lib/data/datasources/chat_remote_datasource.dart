@@ -139,9 +139,16 @@ class ChatRemoteDatasource {
   GrupoFailure _mapError(DioException e) {
     final body = e.response?.data;
     if (body is Map && body['error'] == 'VALIDATION') {
-      final details = body['details'] as Map?;
-      final first = details?.values.first;
-      return GrupoOperationFailure(first?.toString() ?? 'Dados inválidos.');
+      // 'details' so vem quando o erro e campo a campo. Validacao de regra
+      // unica (ex: carro obrigatorio) vem so em 'message' — usar ela evita
+      // mostrar um "Dados inválidos." generico que nao diz o que fazer.
+      final details = body['details'];
+      if (details is Map && details.isNotEmpty) {
+        return GrupoOperationFailure(details.values.first.toString());
+      }
+      final msg = body['message'];
+      return GrupoOperationFailure(
+          msg is String && msg.isNotEmpty ? msg : 'Dados inválidos.');
     }
     // Para erros de regra (FORBIDDEN/NOT_FOUND/CONFLICT) a mensagem do backend
     // já é amigável e específica do contexto (membro, carona...). Usamos ela.
