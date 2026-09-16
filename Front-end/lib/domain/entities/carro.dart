@@ -7,9 +7,8 @@ class Carro {
   final int anoFabricacao;
   final String cor;
   final String placa;
-
-  /// Capacidade total (motorista incluso). Vagas de passageiro = capacidade - 1.
   final int capacidade;
+  final double consumoMedio;
   final bool ativo;
 
   const Carro({
@@ -20,6 +19,7 @@ class Carro {
     required this.cor,
     required this.placa,
     required this.capacidade,
+    required this.consumoMedio,
     required this.ativo,
   });
 

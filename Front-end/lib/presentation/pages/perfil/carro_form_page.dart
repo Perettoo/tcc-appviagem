@@ -29,7 +29,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
   late final TextEditingController _cor;
   late final TextEditingController _placa;
   late final TextEditingController _capacidade;
-
+  late final TextEditingController _consumoMedio;
   @override
   void initState() {
     super.initState();
@@ -40,6 +40,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
     _cor = TextEditingController(text: c?.cor ?? '');
     _placa = TextEditingController(text: c?.placa ?? '');
     _capacidade = TextEditingController(text: c?.capacidade.toString() ?? '');
+    _consumoMedio = TextEditingController(text: c?.consumoMedio.toString() ?? '');
   }
 
   @override
@@ -50,6 +51,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
     _cor.dispose();
     _placa.dispose();
     _capacidade.dispose();
+    _consumoMedio.dispose();
     super.dispose();
   }
 
@@ -58,6 +60,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
     final controller = context.read<CarroController>();
     final ano = int.parse(_ano.text.trim());
     final capacidade = int.parse(_capacidade.text.trim());
+    final consumoMedio = double.parse(_consumoMedio.text.trim().replaceAll(',', '.'));
 
     final ok = widget.ehEdicao
         ? await controller.atualizar(
@@ -68,6 +71,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
             cor: _cor.text.trim(),
             placa: _placa.text.trim(),
             capacidade: capacidade,
+            consumoMedio: consumoMedio,
           )
         : await controller.criar(
             marca: _marca.text.trim(),
@@ -76,6 +80,7 @@ class _CarroFormPageState extends State<CarroFormPage> {
             cor: _cor.text.trim(),
             placa: _placa.text.trim(),
             capacidade: capacidade,
+            consumoMedio: consumoMedio,
           );
 
     if (!mounted) return;
@@ -188,6 +193,28 @@ class _CarroFormPageState extends State<CarroFormPage> {
                   if (cap == null || cap < AppConstants.carroCapacidadeMin) {
                     return 'Capacidade deve ser de ao menos '
                         '${AppConstants.carroCapacidadeMin} (motorista incluso).';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _campo(
+                controller: _consumoMedio,
+                label: 'Consumo Médio (km/l)',
+                hint: 'Ex: 10.5 ou 10,5',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  // Permite apenas números, ponto e vírgula
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')), 
+                ],
+                validator: (v) {
+                  final base = _obrigatorio(v);
+                  if (base != null) return base;
+                  
+                  // Tenta converter trocando vírgula por ponto
+                  final consumo = double.tryParse(v!.trim().replaceAll(',', '.'));
+                  if (consumo == null || consumo <= 0) {
+                    return 'Informe um consumo válido maior que zero.';
                   }
                   return null;
                 },

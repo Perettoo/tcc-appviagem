@@ -10,6 +10,7 @@ abstract class CarroRepository {
     required String cor,
     required String placa,
     required int capacidade,
+    required double consumoMedio,
   });
 
   Future<Carro> atualizar({
@@ -20,6 +21,7 @@ abstract class CarroRepository {
     required String cor,
     required String placa,
     required int capacidade,
+    required double consumoMedio,
   });
 
   Future<void> excluir(int idCarro);

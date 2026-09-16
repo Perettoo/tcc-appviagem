@@ -36,8 +36,19 @@ module.exports = {
         type: Sequelize.STRING(7),
         allowNull: false,
       },
-      // Carro selecionado do usuario (o que e atrelado a carona ao aceitar).
-      // No maximo um ativo por usuario; a regra e garantida no controller.
+      
+      capacidade: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 5, // Assume 5 lugares se nada for enviado
+      },
+      
+      consumoMedio: {
+        type: Sequelize.FLOAT,
+        allowNull: false,
+        defaultValue: 10.0, // Assume 10km/l por padrão
+      },
+      
       ativo: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
@@ -45,7 +56,6 @@ module.exports = {
       },
     });
 
-    // Carros de um usuario; busca do ativo passa por aqui.
     await queryInterface.addIndex('carro', ['idUsuario'], {
       name: 'ix_carro_usuario',
     });

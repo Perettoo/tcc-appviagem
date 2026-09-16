@@ -49,6 +49,7 @@ class CarroRemoteDatasource {
     required String cor,
     required String placa,
     required int capacidade,
+    required double consumoMedio,
   }) async {
     try {
       final response = await _dio.post('/carros', data: {
@@ -58,6 +59,7 @@ class CarroRemoteDatasource {
         'cor': cor,
         'placa': placa,
         'capacidade': capacidade,
+        'consumoMedio': consumoMedio,
       });
       return _fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -73,6 +75,7 @@ class CarroRemoteDatasource {
     required String cor,
     required String placa,
     required int capacidade,
+    required double consumoMedio,
   }) async {
     try {
       final response = await _dio.patch('/carros/$idCarro', data: {
@@ -82,6 +85,7 @@ class CarroRemoteDatasource {
         'cor': cor,
         'placa': placa,
         'capacidade': capacidade,
+        'consumoMedio': consumoMedio,
       });
       return _fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -115,6 +119,7 @@ class CarroRemoteDatasource {
       cor: j['cor'] as String,
       placa: j['placa'] as String,
       capacidade: (j['capacidade'] as num?)?.toInt() ?? 0,
+      consumoMedio: (j['consumoMedio'] as num?)?.toDouble() ?? 10.0,
       ativo: j['ativo'] == true || j['ativo'] == 1,
     );
   }

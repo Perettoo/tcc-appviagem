@@ -38,6 +38,7 @@ function validarCarro(input) {
   const ano = Number(input.anoFabricacao);
   const anoMax = new Date().getFullYear() + 1;
   const capacidade = Number(input.capacidade);
+  const consumoMedio = Number(input.consumoMedio);
 
   if (marca.length < security.CARRO_TEXTO_MIN) {
     erros.marca = `Marca deve ter ao menos ${security.CARRO_TEXTO_MIN} caracteres.`;
@@ -57,12 +58,15 @@ function validarCarro(input) {
   if (!Number.isInteger(capacidade) || capacidade < security.CARRO_CAPACIDADE_MIN) {
     erros.capacidade = `Capacidade deve ser de ao menos ${security.CARRO_CAPACIDADE_MIN} (motorista incluso).`;
   }
-
+  if (!Number.isFinite(consumoMedio) || consumoMedio <= 0) {
+    erros.consumoMedio = `Consumo medio deve ser um numero positivo.`;
+  }
+  
   if (Object.keys(erros).length > 0) {
     throw AppError.validation('Dados invalidos.', erros);
   }
 
-  return { marca, modelo, cor, placa, anoFabricacao: ano, capacidade };
+  return { marca, modelo, cor, placa, anoFabricacao: ano, capacidade, consumoMedio};
 }
 
 function carroPayload(carro) {
@@ -74,6 +78,7 @@ function carroPayload(carro) {
     cor: carro.cor,
     placa: carro.placa,
     capacidade: carro.capacidade,
+    consumoMedio: carro.consumoMedio,
     ativo: carro.ativo,
   };
 }
@@ -134,6 +139,7 @@ async function atualizar(req, res) {
     carro.placa = dados.placa;
     carro.anoFabricacao = dados.anoFabricacao;
     carro.capacidade = dados.capacidade;
+    carro.consumoMedio = dados.consumoMedio;
     await carro.save();
 
     return res.status(200).json(carroPayload(carro));
