@@ -225,6 +225,7 @@ async function buscar(req, res) {
 
     const { Op } = db.Sequelize;
     const like = `%${termo}%`;
+    
     const usuarios = await db.Usuario.findAll({
       where: {
         ativo: true,
@@ -238,11 +239,20 @@ async function buscar(req, res) {
       limit: 20,
     });
 
+    // Função de máscara de privacidade (LGPD)
+    const mascararEmail = (email) => {
+      if (!email || !email.includes('@')) return email;
+      const [usuario, dominio] = email.split('@');
+      // Mostra as 3 primeiras letras (ou só a 1ª se for um nome muito curto)
+      const parteVisivel = usuario.length > 3 ? usuario.substring(0, 3) : usuario.charAt(0);
+      return `${parteVisivel}***@${dominio}`;
+    };
+
     return res.status(200).json(
       usuarios.map((u) => ({
         idUsuario: u.idUsuario,
         nome: u.nome,
-        email: u.email,
+        email: mascararEmail(u.email), // Agora o dado trafega protegido pela rede
         tipo: u.tipo,
       })),
     );

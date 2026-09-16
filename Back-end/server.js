@@ -3,8 +3,9 @@ require('dotenv').config();
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit'); // 👈 1. Importamos a biblioteca do escudo
 
-const { sequelize } = require('./config/database');
+const { sequelize } = require('./models');
 const { initSocket } = require('./realtime/socket_server');
 const healthRoutes = require('./routes/health');
 const usuarioRoutes = require('./routes/usuario');
@@ -15,12 +16,32 @@ const carroRoutes = require('./routes/carro/carro');
 
 const app = express();
 
+// 2. Criamos o Escudo Global (Evita lentidão e queda da API inteira)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // Janela de 15 minutos
+  max: 150, // Limite de 150 requisições por IP
+  message: { error: 'Muitas requisições deste IP. Tente novamente mais tarde.' }
+});
+
+// 3. Criamos o Escudo de Autenticação (Evita força bruta no login)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // Janela de 15 minutos
+  max: 10, // Limite de 10 tentativas de login/cadastro por IP
+  message: { error: 'Muitas tentativas de login. Bloqueado por 15 minutos por segurança.' }
+});
+
 app.use(cors());
 app.use(express.json());
 
+// 4. Aplicamos o escudo global no aplicativo todo, ANTES de abrir as rotas
+app.use(globalLimiter);
+
 app.use(healthRoutes);
 app.use(usuarioRoutes);
-app.use(authRoutes);
+
+// 5. Aplicamos o escudo mais forte APENAS nas rotas de login/cadastro
+app.use(authLimiter, authRoutes); 
+
 app.use(grupoRoutes);
 app.use(caronaRoutes);
 app.use(carroRoutes);

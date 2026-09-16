@@ -107,22 +107,39 @@ async function listar(req, res) {
 // Cria um carro do usuario. Se for o primeiro (nenhum ativo ainda), ja entra
 // como ativo para que o usuario possa aceitar caronas sem um passo extra.
 async function criar(req, res) {
+  const t = await db.sequelize.transaction();
   try {
     const dados = validarCarro(req.body);
     const idUsuario = req.user.idUsuario;
 
-    const temAtivo = await db.Carro.findOne({
-      where: { idUsuario, ativo: true },
+    // 1. O CADEADO MESTRE: Tranca o registro do motorista
+    // Impede que duas requisições simultâneas tentem criar carros ao mesmo tempo
+    await db.Usuario.findOne({
+      where: { idUsuario },
+      attributes: ['idUsuario'],
+      transaction: t,
+      lock: t.LOCK.UPDATE,
     });
 
+    // 2. Agora olhamos o status dos carros sabendo que ninguém vai mexer neles
+    const temAtivo = await db.Carro.findOne({
+      where: { idUsuario, ativo: true },
+      transaction: t,
+    });
+
+    // 3. Cria o carro dentro do ambiente seguro
     const carro = await db.Carro.create({
       ...dados,
       idUsuario,
       ativo: !temAtivo,
-    });
+    }, { transaction: t });
 
+    await t.commit();
     return res.status(201).json(carroPayload(carro));
   } catch (err) {
+    if (!t.finished) {
+      await t.rollback().catch(() => {});
+    }
     return tratarErro(res, err, '[carro_controller.criar]');
   }
 }
@@ -168,25 +185,41 @@ async function ativar(req, res) {
   try {
     const idCarro = parseIdCarro(req);
     const idUsuario = req.user.idUsuario;
+
+    // 1. O CADEADO MESTRE: Tranca o registro do motorista. 
+    // Qualquer requisição simultânea desse usuário vai ter que esperar na fila.
+    await db.Usuario.findOne({
+      where: { idUsuario },
+      attributes: ['idUsuario'],
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+
     const carro = await db.Carro.findOne({
       where: { idCarro, idUsuario },
       transaction: t,
     });
+    
     if (!carro) {
       throw AppError.notFound('Carro nao encontrado.');
     }
 
+    // 2. Agora podemos desativar todos com segurança, sem medo de concorrência
     await db.Carro.update(
       { ativo: false },
-      { where: { idUsuario, ativo: true }, transaction: t },
+      { where: { idUsuario }, transaction: t },
     );
+    
+    // 3. E ativamos apenas o escolhido
     carro.ativo = true;
     await carro.save({ transaction: t });
 
     await t.commit();
     return res.status(200).json(carroPayload(carro));
   } catch (err) {
-    await t.rollback().catch(() => {});
+    if (!t.finished) {
+      await t.rollback().catch(() => {});
+    }
     return tratarErro(res, err, '[carro_controller.ativar]');
   }
 }

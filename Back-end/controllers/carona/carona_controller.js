@@ -281,12 +281,20 @@ async function cancelarPedido(req, res) {
     const carona = await buscarCarona(idCarona);
     await ensureMembro(req.user.idUsuario, carona.idGrupo);
 
+    // Trava de Segurança: Bloqueia o cancelamento se a carona não estiver ABERTA
+    if (carona.status !== STATUS.ABERTA) {
+      throw AppError.conflict('Não é possível cancelar o pedido. Esta carona já foi concluída ou cancelada.');
+    }
+
     const vinculo = await db.CaronaUsuario.findOne({
       where: { idCarona, idPassageiro: req.user.idUsuario },
     });
+    
     if (!vinculo) {
       throw AppError.notFound('Voce nao tem um pedido nesta carona.');
     }
+    
+    // Se a carona está aberta, o cancelamento é permitido
     await vinculo.destroy();
 
     await emitirAtualizacao(req, idCarona, carona.idGrupo);
@@ -299,6 +307,10 @@ async function cancelarPedido(req, res) {
 // Motorista aprova ou recusa o pedido de um passageiro. Aprovar respeita o
 // limite de vagas (capacidade do carro - 1). Body: { acao: 'aprovar'|'recusar' }.
 async function decidir(req, res) {
+  let idGrupoCarona = null;
+  // 1. Iniciamos a transação para agrupar as operações
+  const t = await db.sequelize.transaction();
+  
   try {
     const idCarona = parseIdCarona(req);
     const idPassageiro = parseIdPassageiro(req);
@@ -313,11 +325,17 @@ async function decidir(req, res) {
         { model: db.Carro, as: 'carro', attributes: ['idCarro', 'capacidade'] },
         { model: db.CaronaUsuario, as: 'passageiros', attributes: ['idPivot', 'idPassageiro', 'status'] },
       ],
+      transaction: t,
+      lock: t.LOCK.UPDATE, // 🔒 2. AQUI ESTÁ O CADEADO! Bloqueia a linha da carona contra concorrência
     });
+
     if (!carona) {
       throw AppError.notFound('Carona nao encontrada.');
     }
-    await ensureMembro(req.user.idUsuario, carona.idGrupo);
+
+    // Guarda o ID para o WebSocket usar depois da transação
+    idGrupoCarona = carona.idGrupo; 
+    await ensureMembro(req.user.idUsuario, idGrupoCarona);
 
     if (carona.idMotorista !== req.user.idUsuario) {
       throw AppError.forbidden('Apenas o motorista decide os pedidos.');
@@ -341,24 +359,36 @@ async function decidir(req, res) {
         const aprovados = (carona.passageiros || []).filter(
           (p) => p.status === PSTATUS.APROVADO,
         ).length;
+        
         if (aprovados >= lugares) {
           throw AppError.conflict(security.CARONA_LOTADA_MSG);
         }
       }
+      
+      // 3. Atualizamos a tabela pivô DENTRO da transação
       await db.CaronaUsuario.update(
         { status: PSTATUS.APROVADO },
-        { where: { idPivot: vinculo.idPivot } },
+        { where: { idPivot: vinculo.idPivot }, transaction: t },
       );
     } else {
       await db.CaronaUsuario.update(
         { status: PSTATUS.RECUSADO },
-        { where: { idPivot: vinculo.idPivot } },
+        { where: { idPivot: vinculo.idPivot }, transaction: t },
       );
     }
 
-    await emitirAtualizacao(req, idCarona, carona.idGrupo);
+    // 4. Se tudo deu certo, liberamos o cadeado e confirmamos no MySQL
+    await t.commit(); 
+    
+    // Disparamos o WebSockets FORA da transação (para não prender o banco enquanto envia dados de rede)
+    await emitirAtualizacao(req, idCarona, idGrupoCarona);
     return await responderDetalhe(res, idCarona);
+    
   } catch (err) {
+    // 5. Se algo quebrou ou deu lotado, desfazemos tudo e destrancamos a tabela
+    if (!t.finished) {
+      await t.rollback().catch(() => {});
+    }
     return tratarErro(res, err, '[carona_controller.decidir]');
   }
 }

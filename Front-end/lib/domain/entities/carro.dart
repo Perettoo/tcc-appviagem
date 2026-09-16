@@ -29,15 +29,26 @@ class Carro {
   /// "Prata • 2020 • 5 lugares" — subtítulo curto.
   String get detalhe => '$cor • $anoFabricacao • $capacidade lugares';
 
-  Carro copyWith({bool? ativo}) {
+  Carro copyWith({
+    int? idCarro,
+    String? marca,
+    String? modelo,
+    int? anoFabricacao,
+    String? cor,
+    String? placa,
+    int? capacidade,
+    double? consumoMedio,
+    bool? ativo,
+  }) {
     return Carro(
-      idCarro: idCarro,
-      marca: marca,
-      modelo: modelo,
-      anoFabricacao: anoFabricacao,
-      cor: cor,
-      placa: placa,
-      capacidade: capacidade,
+      idCarro: idCarro ?? this.idCarro,
+      marca: marca ?? this.marca,
+      modelo: modelo ?? this.modelo,
+      anoFabricacao: anoFabricacao ?? this.anoFabricacao,
+      cor: cor ?? this.cor,
+      placa: placa ?? this.placa,
+      capacidade: capacidade ?? this.capacidade,
+      consumoMedio: consumoMedio ?? this.consumoMedio,
       ativo: ativo ?? this.ativo,
     );
   }

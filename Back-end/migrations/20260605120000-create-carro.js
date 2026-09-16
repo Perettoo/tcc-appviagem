@@ -36,19 +36,6 @@ module.exports = {
         type: Sequelize.STRING(7),
         allowNull: false,
       },
-      
-      capacidade: {
-        type: Sequelize.INTEGER,
-        allowNull: false,
-        defaultValue: 5, // Assume 5 lugares se nada for enviado
-      },
-      
-      consumoMedio: {
-        type: Sequelize.FLOAT,
-        allowNull: false,
-        defaultValue: 10.0, // Assume 10km/l por padrão
-      },
-      
       ativo: {
         type: Sequelize.BOOLEAN,
         allowNull: false,

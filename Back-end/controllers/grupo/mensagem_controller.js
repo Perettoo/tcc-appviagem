@@ -39,9 +39,13 @@ async function listar(req, res) {
     const mensagens = await db.Mensagem.findAll({
       where: { idGrupo, ativo: true },
       include: includeMensagem(db),
-      order: [['dataEnvio', 'ASC'], ['idMensagem', 'ASC']],
+      // 1. Busca de trás para frente (garante as mais recentes)
+      order: [['dataEnvio', 'DESC'], ['idMensagem', 'DESC']],
       limit: HISTORICO_LIMITE,
     });
+
+    // 2. Desvira o array para o celular exibir na ordem cronológica natural (cima para baixo)
+    mensagens.reverse();
 
     return res.status(200).json(mensagens.map(montarPayload));
   } catch (err) {
